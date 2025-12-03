@@ -3,7 +3,7 @@ const app = express();
 const PORT = 8081;
 
 app.get('/', (req, res) => {
-  res.send('Ola Pessoal do PIS!');
+  res.send('Server a correr');
 });
 
 app.listen(PORT, () => {

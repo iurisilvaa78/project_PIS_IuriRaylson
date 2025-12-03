@@ -5,8 +5,10 @@ host: "localhost",
  password: "root",
  database: "PIS-Labs"
 };
+
 var connection = mysql.createConnection(connectionOptions);
 connection.connect();
+
 connection.query("SELECT id, nome FROM produto", (err, rows, fields) => {
  if (err)
  console.log(err);

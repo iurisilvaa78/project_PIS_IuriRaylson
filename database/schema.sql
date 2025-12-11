@@ -133,5 +133,4 @@ INSERT INTO generos (nome) VALUES
 ('Ação'), ('Aventura'), ('Comédia'), ('Drama'), ('Terror'), 
 ('Ficção Científica'), ('Romance'), ('Animação'), ('Documentário'), ('Thriller');
 
--- Utilizador admin será criado pelo script init.js com hash correto
 

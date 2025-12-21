@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes - HuntFilms</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>HuntFilms</h1>
+            <div class="nav-links">
+                <a id="frontoffice-link" href="index.html">Início</a>
+                <a id="backoffice-link" href="backoffice.html" style="display: none;">Backoffice</a>
+                <a id="perfil-link" href="perfil.html" style="display: none;">Perfil</a>
+                <div id="auth-section">
+                    <button id="login-btn" onclick="showLogin()">Login</button>
+                    <button id="register-btn" onclick="showRegister()">Registo</button>
+                    <span id="user-info" style="display: none;"></span>
+                    <button id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="detalhes-container" class="detalhes-container">
+            <div class="loading">A carregar...</div>
+        </div>
+
+        <div id="reviews-section" class="reviews-section" style="display: none;">
+            <h2>📝 Avaliações e Reviews</h2>
+            
+            <div id="add-review-form" class="add-review-form" style="display: none;">
+                <h3>✍️ Deixar a sua Review</h3>
+                <form id="review-form">
+                    <div class="form-group">
+                        <label for="avaliacao">Avaliação (1-10): <span class="required">*</span></label>
+                        <div class="rating-input">
+                            <input type="number" id="avaliacao" min="1" max="10" step="1" required>
+                            <span class="rating-help">De 1 (horrível) a 10 (excelente)</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="comentario">Comentário (opcional):</label>
+                        <textarea id="comentario" rows="4" placeholder="Partilhe a sua opinião sobre este conteúdo..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit-review">Publicar Review</button>
+                </form>
+            </div>
+
+            <div id="reviews-list"></div>
+        </div>
+    </div>
+
+    <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌓</button>
+
+    <!-- Modal de Autenticação -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="detalhes.js"></script>
+</body>
+</html>

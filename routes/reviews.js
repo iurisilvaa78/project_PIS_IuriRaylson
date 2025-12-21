@@ -6,15 +6,15 @@ const { verifyJWT } = require('../middleware/auth');
 // Criar review
 router.post('/', verifyJWT, async (req, res) => {
     try {
-        const { conteudo_id, classificacao, critica } = req.body;
+        const { conteudo_id, avaliacao, comentario } = req.body;
         const utilizador_id = req.userId;
         
-        if (!conteudo_id || !classificacao) {
-            return res.status(400).json({ message: 'Conteúdo ID e classificação são obrigatórios.' });
+        if (!conteudo_id || !avaliacao) {
+            return res.status(400).json({ message: 'Conteúdo ID e avaliação são obrigatórios.' });
         }
         
-        if (classificacao < 1 || classificacao > 5) {
-            return res.status(400).json({ message: 'Classificação deve estar entre 1 e 5.' });
+        if (avaliacao < 1 || avaliacao > 10) {
+            return res.status(400).json({ message: 'Avaliação deve estar entre 1 e 10.' });
         }
         
         // Verificar se já existe review
@@ -26,17 +26,24 @@ router.post('/', verifyJWT, async (req, res) => {
         if (existing.length > 0) {
             // Atualizar review existente
             await db.execute(
-                'UPDATE reviews SET classificacao = ?, critica = ? WHERE id = ?',
-                [classificacao, critica || null, existing[0].id]
+                'UPDATE reviews SET avaliacao = ?, comentario = ? WHERE id = ?',
+                [avaliacao, comentario || null, existing[0].id]
             );
+            
+            // Atualizar rating médio do conteúdo
+            await updateConteudoRating(conteudo_id);
+            
             return res.json({ message: 'Review atualizada com sucesso.', id: existing[0].id });
         }
         
         // Criar nova review
         const [result] = await db.execute(
-            'INSERT INTO reviews (utilizador_id, conteudo_id, classificacao, critica) VALUES (?, ?, ?, ?)',
-            [utilizador_id, conteudo_id, classificacao, critica || null]
+            'INSERT INTO reviews (utilizador_id, conteudo_id, avaliacao, comentario) VALUES (?, ?, ?, ?)',
+            [utilizador_id, conteudo_id, avaliacao, comentario || null]
         );
+        
+        // Atualizar rating médio do conteúdo
+        await updateConteudoRating(conteudo_id);
         
         res.status(201).json({ message: 'Review criada com sucesso.', id: result.insertId });
     } catch (error) {
@@ -123,19 +130,25 @@ router.delete('/:id', verifyJWT, async (req, res) => {
         
         // Verificar se é o dono da review ou admin
         const [review] = await db.execute(
-            'SELECT utilizador_id FROM reviews WHERE id = ?',
-            [id]
+            'SELECT r.utilizador_id, r.conteudo_id, u.is_admin FROM reviews r LEFT JOIN utilizadores u ON u.id = ? WHERE r.id = ?',
+            [utilizador_id, id]
         );
         
         if (review.length === 0) {
             return res.status(404).json({ message: 'Review não encontrada.' });
         }
         
-        if (review[0].utilizador_id !== utilizador_id && !req.isAdmin) {
+        const isAdmin = review[0].is_admin === 1;
+        if (review[0].utilizador_id !== utilizador_id && !isAdmin) {
             return res.status(403).json({ message: 'Não tem permissão para eliminar esta review.' });
         }
         
+        const conteudo_id = review[0].conteudo_id;
+        
         await db.execute('DELETE FROM reviews WHERE id = ?', [id]);
+        
+        // Atualizar rating médio do conteúdo
+        await updateConteudoRating(conteudo_id);
         
         res.json({ message: 'Review eliminada com sucesso.' });
     } catch (error) {
@@ -143,6 +156,25 @@ router.delete('/:id', verifyJWT, async (req, res) => {
         res.status(500).json({ message: 'Erro ao eliminar review.' });
     }
 });
+
+// Função auxiliar para atualizar rating médio do conteúdo
+async function updateConteudoRating(conteudo_id) {
+    try {
+        const [result] = await db.execute(
+            'SELECT AVG(avaliacao) as rating_medio FROM reviews WHERE conteudo_id = ?',
+            [conteudo_id]
+        );
+        
+        const rating = result[0].rating_medio || null;
+        
+        await db.execute(
+            'UPDATE conteudos SET rating = ? WHERE id = ?',
+            [rating, conteudo_id]
+        );
+    } catch (error) {
+        console.error('Erro ao atualizar rating:', error);
+    }
+}
 
 module.exports = router;
 

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HuntFilms - Backoffice</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>HuntFilms - Backoffice</h1>
+            <div class="nav-links">
+                <a id="frontoffice-link" href="index.html">Início</a>
+                <a id="backoffice-link" href="backoffice.html" class="active" style="display: none;">Backoffice</a>
+                <a id="perfil-link" href="perfil.html" style="display: none;">Perfil</a>
+                <div id="auth-section">
+                    <button id="login-btn-back" onclick="goToLogin()">Login</button>
+                    <button id="register-btn-back" onclick="goToRegister()">Registo</button>
+                    <span id="user-info" style="display:none;"></span>
+                    <button id="logout-btn" onclick="logout()" style="display:none;">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="login-required" style="display: block;">
+            <h2>Para aceder ao Backoffice precisa iniciar sessão como administrador.</h2>
+        </div>
+
+        <div id="admin-content" style="display: none;">
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="showTab('import')">Importar da TMDB</button>
+                <button class="tab-btn" onclick="showTab('create')">Criar Manualmente</button>
+                <button class="tab-btn" onclick="showTab('manage')">Gerir Conteúdos</button>
+                <button class="tab-btn" onclick="showTab('users')">Utilizadores</button>
+                <button class="tab-btn" onclick="showTab('reviews')">Reviews</button>
+            </div>
+
+            <!-- Tab: Importar da TMDB -->
+            <div id="import-tab" class="tab-content active">
+                <h2>Importar da TMDB</h2>
+                <div class="search-section">
+                    <input type="text" id="tmdb-search" placeholder="Pesquisar na TMDB...">
+                    <select id="tmdb-type">
+                        <option value="movie">Filme</option>
+                        <option value="tv">Série</option>
+                    </select>
+                    <button onclick="searchTMDB()">Pesquisar</button>
+                </div>
+                <div id="tmdb-results" class="content-grid"></div>
+            </div>
+
+            <!-- Tab: Criar Manualmente -->
+            <div id="create-tab" class="tab-content">
+                <h2>Criar Conteúdo Manualmente</h2>
+                <form id="create-form" onsubmit="createContent(event)">
+                    <input type="text" id="create-titulo" placeholder="Título" required>
+                    <textarea id="create-sinopse" placeholder="Sinopse"></textarea>
+                    <input type="number" id="create-duracao" placeholder="Duração (minutos)">
+                    <input type="number" id="create-ano" placeholder="Ano de lançamento">
+                    <select id="create-tipo" required>
+                        <option value="">Selecione o tipo</option>
+                        <option value="filme">Filme</option>
+                        <option value="serie">Série</option>
+                    </select>
+                    <input type="url" id="create-poster" placeholder="URL do Poster">
+                    <input type="url" id="create-trailer" placeholder="URL do Trailer">
+                    <button type="submit">Criar</button>
+                </form>
+            </div>
+
+            <!-- Tab: Gerir Conteúdos -->
+            <div id="manage-tab" class="tab-content">
+                <h2>Gerir Conteúdos</h2>
+                <div id="manage-content" class="content-grid"></div>
+            </div>
+
+            <!-- Tab: Utilizadores -->
+            <div id="users-tab" class="tab-content">
+                <h2>Utilizadores</h2>
+                <div id="users-list" class="content-grid"></div>
+            </div>
+
+            <!-- Tab: Reviews -->
+            <div id="reviews-tab" class="tab-content">
+                <h2>Reviews e Comentários</h2>
+                <div id="admin-reviews-list" class="content-grid"></div>
+            </div>
+        </div>
+
+        <!-- Modal de Perfil -->
+        <div id="perfil-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close" onclick="closePerfilModal()">&times;</span>
+                <div id="perfil-content">
+                    <h2>Meu Perfil</h2>
+                    <div id="perfil-info"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botão Dark Mode -->
+        <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar Dark Mode">
+            🌓
+        </button>
+    </div>
+
+    <script src="backoffice.js"></script>
+</body>
+</html>
+

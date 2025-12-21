@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HuntFilms - Meu Perfil</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>HuntFilms - Perfil</h1>
+            <div class="nav-links">
+                <a id="frontoffice-link" href="index.html">Início</a>
+                <a id="backoffice-link" href="backoffice.html" style="display: none;">Backoffice</a>
+                <a id="perfil-link" href="perfil.html" class="active" style="display: none;">Perfil</a>
+                <div id="auth-section">
+                    <button id="login-btn" onclick="goToLogin()">Login</button>
+                    <button id="register-btn" onclick="goToRegister()">Registo</button>
+                    <span id="user-info" style="display: none;"></span>
+                    <button id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="login-required" style="display: block;">
+            <h2>Para aceder ao perfil precisa iniciar sessão.</h2>
+            <button onclick="goToLogin()">Fazer Login</button>
+        </div>
+
+        <div id="perfil-content" style="display: none;">
+            <!-- Tabs -->
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="showProfileTab('info')">Minha Informação</button>
+                <button class="tab-btn" onclick="showProfileTab('reviews')">Minhas Reviews</button>
+                <button class="tab-btn" onclick="showProfileTab('favoritos')">Meus Favoritos</button>
+                <button class="tab-btn" onclick="showProfileTab('listas')">Minhas Listas</button>
+            </div>
+
+            <!-- Tab: Informação -->
+            <div id="info-tab" class="tab-content active">
+                <h2>Minha Informação</h2>
+                <form id="perfil-form" onsubmit="updatePerfil(event)">
+                    <div style="display: grid; gap: 15px;">
+                        <div>
+                            <label><strong>Username:</strong></label>
+                            <input type="text" id="edit-username" readonly style="background: #f0f0f0; cursor: not-allowed;">
+                        </div>
+                        <div>
+                            <label><strong>Email:</strong></label>
+                            <input type="email" id="edit-email" required>
+                        </div>
+                        <div>
+                            <label><strong>Nome:</strong></label>
+                            <input type="text" id="edit-nome">
+                        </div>
+                        <div>
+                            <label><strong>Nova Password:</strong> (deixe em branco para não alterar)</label>
+                            <input type="password" id="edit-password" placeholder="Nova password">
+                        </div>
+                        <div>
+                            <label><strong>Confirmar Password:</strong></label>
+                            <input type="password" id="edit-password-confirm" placeholder="Confirmar nova password">
+                        </div>
+                        <div>
+                            <p><strong>Membro desde:</strong> <span id="data-registo"></span></p>
+                            <p><strong>Tipo de conta:</strong> <span id="tipo-conta"></span></p>
+                        </div>
+                        <button type="submit">Atualizar Perfil</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tab: Reviews -->
+            <div id="reviews-tab" class="tab-content">
+                <h2>Minhas Reviews</h2>
+                <div id="reviews-list"></div>
+            </div>
+
+            <!-- Tab: Favoritos -->
+            <div id="favoritos-tab" class="tab-content">
+                <h2>Meus Favoritos</h2>
+                <div id="favoritos-list" class="content-grid"></div>
+            </div>
+
+            <!-- Tab: Listas -->
+            <div id="listas-tab" class="tab-content">
+                <h2>Minhas Listas</h2>
+                <div id="listas-list"></div>
+            </div>
+        </div>
+
+        <!-- Botão Dark Mode -->
+        <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar Dark Mode">
+            🌓
+        </button>
+    </div>
+
+    <script src="perfil.js"></script>
+</body>
+</html>

@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS conteudos (
     tipo ENUM('filme', 'serie') NOT NULL,
     poster_url VARCHAR(255),
     trailer_url VARCHAR(255),
+    tmdb_rating DECIMAL(3,1), -- Rating da TMDB (vote_average)
+    rating DECIMAL(3,1), -- Rating médio calculado das reviews
     data_importacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -78,8 +80,8 @@ CREATE TABLE IF NOT EXISTS reviews (
     id INT AUTO_INCREMENT PRIMARY KEY,
     utilizador_id INT,
     conteudo_id INT,
-    classificacao INT CHECK (classificacao >= 1 AND classificacao <= 5),
-    critica TEXT,
+    avaliacao INT CHECK (avaliacao >= 1 AND avaliacao <= 10),
+    comentario TEXT,
     data_review TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     votos_utilidade INT DEFAULT 0,
     FOREIGN KEY (utilizador_id) REFERENCES utilizadores(id) ON DELETE CASCADE,

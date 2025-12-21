@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HuntFilms - Gestão de Filmes e Séries</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>HuntFilms</h1>
+            <div class="nav-links">
+                <a id="frontoffice-link" href="index.html" class="active" style="display: none;">Início</a>
+                <a id="backoffice-link" href="backoffice.html" style="display: none;">Backoffice</a>
+                <a id="perfil-link" href="perfil.html" style="display: none;">Perfil</a>
+                <div id="auth-section">
+                    <button id="login-btn" onclick="showLogin()">Login</button>
+                    <button id="register-btn" onclick="showRegister()">Registo</button>
+                    <span id="user-info" style="display: none;"></span>
+                    <button id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Modal de Login/Registo -->
+        <div id="auth-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <div id="login-form">
+                    <h2>Login</h2>
+                    <input type="text" id="login-username" placeholder="Username ou Email">
+                    <input type="password" id="login-password" placeholder="Password">
+                    <button onclick="login()">Entrar</button>
+                    <div class="auth-switch">
+                        <span>Não tem conta?</span>
+                        <button type="button" class="auth-link" onclick="showRegister()">Criar conta</button>
+                    </div>
+                </div>
+                <div id="register-form" style="display: none;">
+                    <h2>Registo</h2>
+                    <input type="text" id="reg-username" placeholder="Username">
+                    <input type="email" id="reg-email" placeholder="Email">
+                    <input type="password" id="reg-password" placeholder="Password">
+                    <input type="text" id="reg-nome" placeholder="Nome (opcional)">
+                    <button onclick="register()">Registar</button>
+                    <div class="auth-switch">
+                        <span>Já tem conta?</span>
+                        <button type="button" class="auth-link" onclick="showLogin()">Fazer login</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Perfil -->
+        <div id="perfil-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close" onclick="closePerfilModal()">&times;</span>
+                <div id="perfil-content">
+                    <h2>Meu Perfil</h2>
+                    <div id="perfil-info"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pesquisa -->
+        <div class="search-section">
+            <input type="text" id="search-input" placeholder="Pesquisar filmes ou séries...">
+            <select id="tipo-filter">
+                <option value="">Todos</option>
+                <option value="filme">Filmes</option>
+                <option value="serie">Séries</option>
+            </select>
+            <button onclick="searchContent()">Pesquisar</button>
+        </div>
+
+        <!-- Conteúdos -->
+        <div id="content-grid" class="content-grid"></div>
+
+        <!-- Controles de Paginação -->
+        <div id="pagination-controls" class="pagination-controls">
+            <button id="prev-page" onclick="changePage(currentPage - 1)" disabled>Anterior</button>
+            <span id="page-info">Página 1</span>
+            <button id="next-page" onclick="changePage(currentPage + 1)">Próxima</button>
+        </div>
+
+        <!-- Botão Voltar ao Topo -->
+        <button id="scroll-to-top" class="scroll-to-top" onclick="scrollToTop()" style="display: none;">
+            ↑
+        </button>
+
+        <!-- Botão Dark Mode -->
+        <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar Dark Mode">
+            🌓
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

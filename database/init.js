@@ -17,11 +17,9 @@ async function initDatabase() {
     try {
         console.log('A conectar à base de dados...');
         
-        // Ler e executar schema SQL
         const schemaPath = path.join(__dirname, 'schema.sql');
         const schema = fs.readFileSync(schemaPath, 'utf8');
         
-        // Remover a linha do INSERT do admin (vamos criar depois com hash correto)
         const schemaWithoutAdmin = schema.replace(
             /INSERT INTO utilizadores.*admin.*;/s,
             ''

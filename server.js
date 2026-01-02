@@ -24,8 +24,6 @@ async function ensureSchema() {
             );
         }
 
-        // Migração segura: versões anteriores guardavam vote_average em conteudos.rating.
-        // Só movemos para tmdb_rating quando NÃO existem reviews (rating não pode ser dos utilizadores).
         await db.execute(
             `UPDATE conteudos c
              LEFT JOIN (
@@ -42,7 +40,6 @@ async function ensureSchema() {
         );
     } catch (error) {
         console.error('Erro ao validar/aplicar migrações da base de dados:', error);
-        // Não parar o servidor aqui; algumas instalações podem não ter permissões de ALTER.
     }
 }
 
@@ -85,7 +82,7 @@ async function startServer() {
     // Iniciar servidor
     app.listen(PORT, () => {
         console.log(`Servidor a correr na porta ${PORT}`);
-        console.log(`Aceda a http://localhost:${PORT}`);
+        console.log(`http://localhost:${PORT}`);
     });
 }
 

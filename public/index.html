@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HuntFilms - Gestão de Filmes e Séries</title>
+    <title>HuntMovies - Gestão de Filmes e Séries</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
-            <h1>HuntFilms</h1>
+            <h1>HuntMovies</h1>
             <div class="nav-links">
                 <a id="frontoffice-link" href="index.html" class="active" style="display: none;">Início</a>
                 <a id="backoffice-link" href="backoffice.html" style="display: none;">Backoffice</a>
@@ -73,6 +73,9 @@
                 <option value="filme">Filmes</option>
                 <option value="serie">Séries</option>
             </select>
+            <select id="genre-filter">
+                <option value="">Todos os géneros</option>
+            </select>
             <button onclick="searchContent()">Pesquisar</button>
         </div>
 
@@ -93,7 +96,7 @@
 
         <!-- Botão Dark Mode -->
         <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar Dark Mode">
-            🌓
+◐
         </button>
     </div>
 

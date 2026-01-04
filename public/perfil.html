@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HuntFilms - Meu Perfil</title>
+    <title>HuntMovies - Meu Perfil</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
-            <h1>HuntFilms - Perfil</h1>
+            <h1>HuntMovies - Perfil</h1>
             <div class="nav-links">
                 <a id="frontoffice-link" href="index.html">Início</a>
                 <a id="backoffice-link" href="backoffice.html" style="display: none;">Backoffice</a>
@@ -36,7 +36,7 @@
                 <button class="tab-btn active" onclick="showProfileTab('info')">Minha Informação</button>
                 <button class="tab-btn" onclick="showProfileTab('reviews')">Minhas Reviews</button>
                 <button class="tab-btn" onclick="showProfileTab('favoritos')">Meus Favoritos</button>
-                <button class="tab-btn" onclick="showProfileTab('listas')">Minhas Listas</button>
+                <button class="tab-btn" onclick="showProfileTab('lista')">Minha Lista</button>
             </div>
 
             <!-- Tab: Informação -->
@@ -86,15 +86,15 @@
             </div>
 
             <!-- Tab: Listas -->
-            <div id="listas-tab" class="tab-content">
-                <h2>Minhas Listas</h2>
-                <div id="listas-list"></div>
+            <div id="lista-tab" class="tab-content">
+                <h2>Minha Lista</h2>
+                <div id="lista-list" class="content-grid"></div>
             </div>
         </div>
 
         <!-- Botão Dark Mode -->
         <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar Dark Mode">
-            🌓
+◐
         </button>
     </div>
 

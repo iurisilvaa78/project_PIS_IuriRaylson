@@ -40,6 +40,8 @@ function loadDarkModePreference() {
     const darkMode = localStorage.getItem('darkMode');
     if (darkMode === 'enabled') {
         document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
     }
 }
 
@@ -64,6 +66,13 @@ function showSuccessMessage(message) {
         setTimeout(() => popup.remove(), 300);
     }, 3000);
 }
+
+// Garantir que o dark mode é aplicado quando a página é restaurada do cache
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        loadDarkModePreference();
+    }
+});
 
 window.addEventListener('DOMContentLoaded', () => {
     loadDarkModePreference();
@@ -98,12 +107,18 @@ async function verifyAuth() {
             showPerfilContent();
             loadPerfilInfo();
         } else {
-            console.log('Token inválido');
-            showLoginRequired();
+            console.log('Token inválido, a limpar sessão e redirecionar');
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            window.location.href = 'index.html';
         }
     } catch (error) {
         console.error('Erro ao verificar autenticação:', error);
-        showLoginRequired();
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        window.location.href = 'index.html';
     }
 }
 
@@ -185,8 +200,8 @@ function showProfileTab(tabName) {
         loadUserReviews();
     } else if (tabName === 'favoritos') {
         loadUserFavoritos();
-    } else if (tabName === 'listas') {
-        loadUserListas();
+    } else if (tabName === 'lista') {
+        loadUserLista();
     }
 }
 
@@ -267,17 +282,26 @@ async function loadUserReviews() {
             }
             
             reviewsList.innerHTML = reviews.map(review => `
-                <div class="review-card" style="background: rgba(255,255,255,0.9); padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 4px solid #822626;">
-                    <h3>${review.titulo_conteudo}</h3>
-                    <p><strong>Classificação:</strong> ${'⭐'.repeat(review.classificacao)}</p>
-                    <p><strong>Crítica:</strong> ${review.critica || 'Sem crítica escrita'}</p>
-                    <p style="color: #666; font-size: 14px;">
-                        <strong>Data:</strong> ${new Date(review.data_review).toLocaleDateString('pt-PT')} | 
-                        <strong>Votos úteis:</strong> ${review.votos_utilidade || 0}
-                    </p>
-                    <button onclick="deleteReview(${review.id})" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
-                        Eliminar Review
-                    </button>
+                <div class="review-card" style="background: rgba(255,255,255,0.9); padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 4px solid #822626; display: flex; gap: 15px;">
+                    <img src="${review.poster_url || 'https://via.placeholder.com/100x150?text=Sem+Poster'}" 
+                         alt="${review.titulo_conteudo}"
+                         style="width: 100px; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                         onclick="window.location.href='detalhes.html?id=${review.conteudo_id}'">
+                    <div style="flex: 1;">
+                        <h3 style="margin: 0 0 10px 0; cursor: pointer;" onclick="window.location.href='detalhes.html?id=${review.conteudo_id}'">
+                            ${review.titulo_conteudo} (${review.ano_lancamento || 'N/A'})
+                        </h3>
+                        <p style="margin: 5px 0;"><strong>Tipo:</strong> ${review.tipo_conteudo === 'filme' ? 'Filme' : 'Série'}</p>
+                        <p style="margin: 5px 0;"><strong>Sua Avaliação:</strong> ${review.avaliacao}/10</p>
+                        ${review.comentario ? `<p style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 5px;"><strong>Comentário:</strong><br>${review.comentario}</p>` : '<p style="color: #999;">Sem comentário</p>'}
+                        <p style="color: #666; font-size: 14px; margin: 10px 0 0 0;">
+                            <strong>Data:</strong> ${new Date(review.data_review).toLocaleDateString('pt-PT')} | 
+                            <strong>Útil para:</strong> ${review.votos_utilidade || 0} pessoa(s)
+                        </p>
+                        <button onclick="deleteReview(${review.id})" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px;">
+                            Eliminar Review
+                        </button>
+                    </div>
                 </div>
             `).join('');
         } else {
@@ -291,7 +315,7 @@ async function loadUserReviews() {
 
 async function loadUserFavoritos() {
     const favoritosList = document.getElementById('favoritos-list');
-    favoritosList.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">A carregar favoritos...</p>';
+    favoritosList.innerHTML = '<p style="grid-column: 1/-1;">A carregar favoritos...</p>';
     
     try {
         const response = await fetch(`${API_BASE}/favoritos`, {
@@ -302,69 +326,97 @@ async function loadUserFavoritos() {
             const favoritos = await response.json();
             
             if (favoritos.length === 0) {
-                favoritosList.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Ainda não tem favoritos.</p>';
+                favoritosList.innerHTML = '<p style="grid-column: 1/-1;">Ainda não tem favoritos.</p>';
                 return;
             }
             
             favoritosList.innerHTML = favoritos.map(fav => `
-                <div class="content-card">
+                <div class="content-card" style="cursor: pointer;" onclick="window.location.href='detalhes.html?id=${fav.id}'">
                     <img src="${fav.poster_url || 'https://via.placeholder.com/200x300?text=Sem+Poster'}" 
-                         alt="${fav.titulo}">
+                         alt="${fav.titulo || 'Título'}">
                     <div class="content-card-info">
-                        <h3>${fav.titulo}</h3>
-                        <p>${fav.tipo === 'filme' ? '🎬 Filme' : '📺 Série'}</p>
-                        <p>Ano: ${fav.ano_lancamento || 'N/A'}</p>
-                        <button onclick="removeFavorito(${fav.id})" style="width: 100%; margin-top: 10px; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <h3 style="font-size: 16px; margin: 10px 0;">${fav.titulo || 'Sem título'}</h3>
+                        <p style="margin: 5px 0;">${fav.tipo === 'filme' ? 'Filme' : 'Série'}</p>
+                        <p style="margin: 5px 0;"><strong>Ano:</strong> ${fav.ano_lancamento || 'N/A'}</p>
+                        ${(fav.rating && fav.rating > 0) || (fav.tmdb_rating && fav.tmdb_rating > 0) ? `<p style="margin: 5px 0;"><strong>Rating:</strong> ${Number(fav.rating || fav.tmdb_rating).toFixed(1)}/10</p>` : ''}
+                        <button onclick="event.stopPropagation(); removeFavorito(${fav.id})" style="width: 100%; margin-top: 10px; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">
                             Remover
                         </button>
                     </div>
                 </div>
             `).join('');
         } else {
-            favoritosList.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Erro ao carregar favoritos.</p>';
+            favoritosList.innerHTML = '<p style="grid-column: 1/-1;">Erro ao carregar favoritos.</p>';
         }
     } catch (error) {
         console.error('Erro ao carregar favoritos:', error);
-        favoritosList.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Erro ao carregar favoritos.</p>';
+        favoritosList.innerHTML = '<p style="grid-column: 1/-1;">Erro ao carregar favoritos.</p>';
     }
 }
 
-async function loadUserListas() {
-    const listasList = document.getElementById('listas-list');
-    listasList.innerHTML = '<p>A carregar listas...</p>';
+async function loadUserLista() {
+    const listaList = document.getElementById('lista-list');
+    listaList.innerHTML = '<p style="grid-column: 1/-1;">A carregar lista...</p>';
     
     try {
-        const response = await fetch(`${API_BASE}/listas/user/${currentUser.id}`, {
+        // Buscar ou criar a lista principal do utilizador
+        const response = await fetch(`${API_BASE}/listas/minha-lista`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            throw new Error('Erro ao carregar lista');
+        }
+        
+        const conteudos = await response.json();
+        
+        if (conteudos.length === 0) {
+            listaList.innerHTML = '<p style="grid-column: 1/-1;">Sua lista está vazia. Adicione filmes e séries na página de detalhes!</p>';
+            return;
+        }
+        
+        listaList.innerHTML = conteudos.map(item => `
+            <div class="content-card" style="cursor: pointer;" onclick="window.location.href='detalhes.html?id=${item.id}'">
+                <img src="${item.poster_url || 'https://via.placeholder.com/200x300?text=Sem+Poster'}" 
+                     alt="${item.titulo || 'Título'}">
+                <div class="content-card-info">
+                    <h3 style="font-size: 16px; margin: 10px 0;">${item.titulo || 'Sem título'}</h3>
+                    <p style="margin: 5px 0;">${item.tipo === 'filme' ? 'Filme' : 'Série'}</p>
+                    <p style="margin: 5px 0;"><strong>Ano:</strong> ${item.ano_lancamento || 'N/A'}</p>
+                    ${(item.rating && item.rating > 0) || (item.tmdb_rating && item.tmdb_rating > 0) ? `<p style="margin: 5px 0;"><strong>Rating:</strong> ${Number(item.rating || item.tmdb_rating).toFixed(1)}/10</p>` : ''}
+                    <button onclick="event.stopPropagation(); removerDaLista(${item.id})" style="width: 100%; margin-top: 10px; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        Remover
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Erro ao carregar lista:', error);
+        listaList.innerHTML = '<p style="grid-column: 1/-1;">Erro ao carregar lista.</p>';
+    }
+}
+
+async function removerDaLista(conteudoId) {
+    if (!confirm('Tem certeza que deseja remover este conteúdo da sua lista?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/listas/minha-lista/${conteudoId}`, {
+            method: 'DELETE',
             headers: getAuthHeaders()
         });
         
         if (response.ok) {
-            const listas = await response.json();
-            
-            if (listas.length === 0) {
-                listasList.innerHTML = '<p>Ainda não criou nenhuma lista.</p>';
-                return;
-            }
-            
-            listasList.innerHTML = listas.map(lista => `
-                <div style="background: rgba(255,255,255,0.9); padding: 20px; margin: 15px 0; border-radius: 10px;">
-                    <h3>${lista.nome}</h3>
-                    <p>${lista.descricao || 'Sem descrição'}</p>
-                    <p style="color: #666; font-size: 14px;">
-                        <strong>Criada em:</strong> ${new Date(lista.data_criacao).toLocaleDateString('pt-PT')} | 
-                        <strong>Itens:</strong> ${lista.total_itens || 0}
-                    </p>
-                    <button onclick="deleteLista(${lista.id})" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
-                        Eliminar Lista
-                    </button>
-                </div>
-            `).join('');
+            showSuccessMessage('Removido da lista com sucesso!');
+            loadUserLista();
         } else {
-            listasList.innerHTML = '<p>Erro ao carregar listas.</p>';
+            const data = await response.json();
+            alert(data.message || 'Erro ao remover da lista');
         }
     } catch (error) {
-        console.error('Erro ao carregar listas:', error);
-        listasList.innerHTML = '<p>Erro ao carregar listas.</p>';
+        console.error('Erro ao remover da lista:', error);
+        alert('Erro ao remover da lista');
     }
 }
 
@@ -416,26 +468,4 @@ async function removeFavorito(conteudoId) {
     }
 }
 
-async function deleteLista(listaId) {
-    if (!confirm('Tem certeza que deseja eliminar esta lista?')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/listas/${listaId}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders()
-        });
-        
-        if (response.ok) {
-            showSuccessMessage('Lista eliminada com sucesso!');
-            loadUserListas();
-        } else {
-            const data = await response.json();
-            alert(data.message || 'Erro ao eliminar lista');
-        }
-    } catch (error) {
-        console.error('Erro ao eliminar lista:', error);
-        alert('Erro ao eliminar lista');
-    }
-}
+

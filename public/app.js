@@ -6,10 +6,15 @@ let isLoading = false;
 let totalPages = 1;
 let currentSearch = '';
 let currentTipo = '';
+let currentGenre = '';
 
 // Favoritos (para mostrar coração cheio/vazio)
 let favoriteIds = new Set();
 let favoritesLoaded = false;
+
+// Cache de géneros
+let movieGenres = {};
+let tvGenres = {};
 
 function bindAuthButtons() {
     const loginBtn = document.getElementById('login-btn');
@@ -49,6 +54,8 @@ function loadDarkModePreference() {
     const darkMode = localStorage.getItem('darkMode');
     if (darkMode === 'enabled') {
         document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
     }
 }
 
@@ -89,7 +96,80 @@ function mapTipoToTMDB(tipo) {
     }
 }
 
+// Carregar géneros da TMDB
+async function loadGenres() {
+    try {
+        const [movieResponse, tvResponse] = await Promise.all([
+            fetch(`${API_BASE}/tmdb/genres/movie`),
+            fetch(`${API_BASE}/tmdb/genres/tv`)
+        ]);
+        
+        const movieData = await movieResponse.json();
+        const tvData = await tvResponse.json();
+        
+        // Criar mapa de ID para nome
+        movieGenres = {};
+        tvGenres = {};
+        
+        (movieData.genres || []).forEach(g => movieGenres[g.id] = g.name);
+        (tvData.genres || []).forEach(g => tvGenres[g.id] = g.name);
+        
+        loadGenresForType();
+    } catch (error) {
+        console.error('Erro ao carregar géneros:', error);
+    }
+}
+
+// Carregar géneros no select baseado no tipo selecionado
+function loadGenresForType() {
+    const tipoFilter = document.getElementById('tipo-filter').value;
+    const genreFilter = document.getElementById('genre-filter');
+    
+    // Limpar opções existentes
+    genreFilter.innerHTML = '<option value="">Todos os géneros</option>';
+    
+    let genres = [];
+    if (tipoFilter === 'filme') {
+        genres = Object.entries(movieGenres);
+    } else if (tipoFilter === 'serie') {
+        genres = Object.entries(tvGenres);
+    } else {
+        // Combinar géneros de filmes e séries (sem duplicados)
+        const allGenres = { ...movieGenres, ...tvGenres };
+        genres = Object.entries(allGenres);
+    }
+    
+    // Ordenar alfabeticamente
+    genres.sort((a, b) => a[1].localeCompare(b[1]));
+    
+    // Adicionar opções
+    genres.forEach(([id, name]) => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = name;
+        genreFilter.appendChild(option);
+    });
+}
+
+// Obter nomes dos géneros de um conteúdo
+function getGenreNames(genreIds, mediaType) {
+    if (!genreIds || !Array.isArray(genreIds)) return '';
+    
+    const genreMap = mediaType === 'movie' ? movieGenres : tvGenres;
+    return genreIds
+        .map(id => genreMap[id])
+        .filter(name => name)
+        .join(', ');
+}
+
 // Verificar se há token salvo
+// Garantir que o dark mode é aplicado quando a página é restaurada do cache
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        loadDarkModePreference();
+    }
+});
+
 window.addEventListener('DOMContentLoaded', () => {
     console.log('DOMContentLoaded - inicializando app');
     loadDarkModePreference();
@@ -104,10 +184,15 @@ window.addEventListener('DOMContentLoaded', () => {
         // Garantir que UI está no estado correto mesmo sem login
         updateUI();
     }
+    loadGenres();
     loadContent();
     
-    // Adicionar event listener para filtro de tipo
-    document.getElementById('tipo-filter').addEventListener('change', filterContent);
+    // Adicionar event listeners para filtros
+    document.getElementById('tipo-filter').addEventListener('change', () => {
+        filterContent();
+        loadGenresForType();
+    });
+    document.getElementById('genre-filter').addEventListener('change', filterContent);
 });
 
 // Re-verificar auth quando volta à página (botão voltar do browser)
@@ -147,12 +232,20 @@ async function verifyAuth() {
             await loadFavoriteIds();
             loadContent(currentPage);
         } else {
-            console.log('Token inválido, fazendo logout');
-            logout();
+            console.log('Token inválido, a limpar sessão');
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            updateUI();
+            loadContent(currentPage);
         }
     } catch (error) {
         console.error('Erro ao verificar autenticação:', error);
-        logout();
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        updateUI();
+        loadContent(currentPage);
     }
 }
 
@@ -389,9 +482,10 @@ async function loadContent(page = 1) {
             // Para busca sem pesquisa (populares)
             if (currentTipo === '') {
                 // "Todos" - buscar filmes e séries
+                const genreParam = currentGenre ? `&genero=${currentGenre}` : '';
                 const [filmesResponse, seriesResponse] = await Promise.all([
-                    fetch(`${API_BASE}/conteudos/tmdb/popular?tipo=movie&page=${page}`),
-                    fetch(`${API_BASE}/conteudos/tmdb/popular?tipo=tv&page=${page}`)
+                    fetch(`${API_BASE}/conteudos/tmdb/popular?tipo=movie&page=${page}${genreParam}`),
+                    fetch(`${API_BASE}/conteudos/tmdb/popular?tipo=tv&page=${page}${genreParam}`)
                 ]);
                 
                 const filmesData = await filmesResponse.json();
@@ -413,7 +507,8 @@ async function loadContent(page = 1) {
             } else {
                 // Filme ou série específica
                 const tmdbTipo = mapTipoToTMDB(currentTipo);
-                url = `${API_BASE}/conteudos/tmdb/popular?tipo=${tmdbTipo}&page=${page}`;
+                const genreParam = currentGenre ? `&genero=${currentGenre}` : '';
+                url = `${API_BASE}/conteudos/tmdb/popular?tipo=${tmdbTipo}&page=${page}${genreParam}`;
                 isTMDB = true;
                 
                 const response = await fetch(url);
@@ -437,6 +532,7 @@ function searchContent() {
     currentPage = 1;
     currentSearch = document.getElementById('search-input').value;
     currentTipo = document.getElementById('tipo-filter').value;
+    currentGenre = document.getElementById('genre-filter').value;
     loadContent(1);
 }
 
@@ -445,7 +541,8 @@ function filterContent() {
     currentPage = 1;
     currentSearch = '';
     currentTipo = document.getElementById('tipo-filter').value;
-    console.log(`Filtro alterado para: ${currentTipo}`);
+    currentGenre = document.getElementById('genre-filter').value;
+    console.log(`Filtro alterado para tipo: ${currentTipo}, género: ${currentGenre}`);
     loadContent(1);
 }
 
@@ -493,7 +590,7 @@ function displayContent(conteudos, isTMDB = false) {
             const titulo = conteudo.title || conteudo.name;
             const posterUrl = conteudo.poster_path ? `https://image.tmdb.org/t/p/w500${conteudo.poster_path}` : 'https://via.placeholder.com/200x300?text=Sem+Poster';
             const ano = conteudo.release_date ? new Date(conteudo.release_date).getFullYear() : (conteudo.first_air_date ? new Date(conteudo.first_air_date).getFullYear() : 'N/A');
-            const tipo = conteudo.title ? '🎬 Filme' : '📺 Série';
+            const tipo = conteudo.title ? 'Filme' : 'Série';
             const rating = conteudo.vote_average ? conteudo.vote_average.toFixed(1) : 'N/A';
             
             card.innerHTML = `
@@ -504,7 +601,7 @@ function displayContent(conteudos, isTMDB = false) {
                     <h3>${titulo}</h3>
                     <p>${tipo}</p>
                     <p>Ano: ${ano}</p>
-                    <p class="rating">⭐ ${rating}/10</p>
+                    <p class="rating">${rating}/10</p>
                 </div>
             `;
         } else {
@@ -514,8 +611,8 @@ function displayContent(conteudos, isTMDB = false) {
             const userRating = conteudo.rating != null ? Number(conteudo.rating).toFixed(1) : 'N/A';
             const tmdbRating = conteudo.tmdb_rating != null ? Number(conteudo.tmdb_rating).toFixed(1) : null;
             const ratingHtml = tmdbRating
-                ? `<p class="rating">⭐ TMDB: ${tmdbRating}/10</p><p class="rating">⭐ Utilizadores: ${userRating}/10</p>`
-                : `<p class="rating">⭐ ${userRating}/10</p>`;
+                ? `<p class="rating">TMDB: ${tmdbRating}/10</p><p class="rating">Utilizadores: ${userRating}/10</p>`
+                : `<p class="rating">${userRating}/10</p>`;
             
             card.innerHTML = `
                 <img src="${conteudo.poster_url || 'https://via.placeholder.com/200x300?text=Sem+Poster'}" 
@@ -523,7 +620,7 @@ function displayContent(conteudos, isTMDB = false) {
                      onerror="this.src='https://via.placeholder.com/200x300?text=Sem+Poster'">
                 <div class="content-card-info">
                     <h3>${conteudo.titulo}</h3>
-                    <p>${conteudo.tipo === 'filme' ? '🎬 Filme' : '📺 Série'}</p>
+                    <p>${conteudo.tipo === 'filme' ? 'Filme' : 'Série'}</p>
                     <p>Ano: ${conteudo.ano_lancamento || 'N/A'}</p>
                     ${ratingHtml}
                 </div>

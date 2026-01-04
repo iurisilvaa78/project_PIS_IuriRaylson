@@ -11,11 +11,8 @@ router.get('/', async (req, res) => {
     try {
         const { tipo, genero, search } = req.query;
         let query = `
-            SELECT c.*, 
-                   GROUP_CONCAT(DISTINCT g.nome) as generos
+            SELECT c.*
             FROM conteudos c
-            LEFT JOIN conteudo_generos cg ON c.id = cg.conteudo_id
-            LEFT JOIN generos g ON cg.genero_id = g.id
             WHERE 1=1
         `;
         const params = [];
@@ -30,7 +27,7 @@ router.get('/', async (req, res) => {
             params.push(`%${search}%`);
         }
         
-        query += ' GROUP BY c.id ORDER BY c.ano_lancamento DESC';
+        query += ' ORDER BY c.ano_lancamento DESC';
         
         const [conteudos] = await db.execute(query, params);
         
@@ -57,30 +54,6 @@ router.get('/:id', async (req, res) => {
         
         const conteudo = conteudos[0];
         
-        // Buscar géneros
-        const [generos] = await db.execute(
-            `SELECT g.* FROM generos g
-             INNER JOIN conteudo_generos cg ON g.id = cg.genero_id
-             WHERE cg.conteudo_id = ?`,
-            [id]
-        );
-        
-        // Buscar elenco
-        const [elenco] = await db.execute(
-            `SELECT p.*, e.personagem FROM pessoas p
-             INNER JOIN elenco e ON p.id = e.pessoa_id
-             WHERE e.conteudo_id = ?`,
-            [id]
-        );
-        
-        // Buscar diretores
-        const [diretores] = await db.execute(
-            `SELECT p.* FROM pessoas p
-             INNER JOIN diretores_conteudo dc ON p.id = dc.pessoa_id
-             WHERE dc.conteudo_id = ?`,
-            [id]
-        );
-        
         // Buscar reviews
         const [reviews] = await db.execute(
             `SELECT r.*, u.username, u.nome as nome_utilizador
@@ -91,9 +64,6 @@ router.get('/:id', async (req, res) => {
             [id]
         );
         
-        conteudo.generos = generos;
-        conteudo.elenco = elenco;
-        conteudo.diretores = diretores;
         conteudo.reviews = reviews;
         
         res.json(conteudo);
@@ -137,17 +107,29 @@ router.get('/tmdb/search', async (req, res) => {
 router.get('/tmdb/popular', async (req, res) => {
     console.log('Rota /tmdb/popular chamada');
     try {
-        const { tipo = 'movie', page = 1 } = req.query;
+        const { tipo = 'movie', page = 1, genero } = req.query;
 
-        console.log('Buscando populares da TMDB para tipo:', tipo, 'página:', page);
+        console.log('Buscando populares da TMDB para tipo:', tipo, 'página:', page, 'género:', genero);
 
         const axios = require('axios');
-        const response = await axios.get(`https://api.themoviedb.org/3/${tipo}/popular`, {
-            params: {
-                api_key: process.env.TMDB_API_KEY,
-                language: 'pt-PT',
-                page
-            },
+        
+        // Se tem género, usar endpoint discover em vez de popular
+        const endpoint = genero ? `https://api.themoviedb.org/3/discover/${tipo}` : `https://api.themoviedb.org/3/${tipo}/popular`;
+        
+        const params = {
+            api_key: process.env.TMDB_API_KEY,
+            language: 'pt-PT',
+            page
+        };
+        
+        // Adicionar filtro de género se especificado
+        if (genero) {
+            params.with_genres = genero;
+            params.sort_by = 'popularity.desc'; // Ordenar por popularidade no discover
+        }
+        
+        const response = await axios.get(endpoint, {
+            params,
             timeout: 10000 // 10 segundos timeout
         });
 
@@ -212,13 +194,24 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
         
         // Buscar dados da TMDB
         const endpoint = tipo === 'movie' ? `/movie/${tmdb_id}` : `/tv/${tmdb_id}`;
-        const [details, videos] = await Promise.all([
+        const [details, videos, credits] = await Promise.all([
             tmdbClient.get(endpoint),
-            tmdbClient.get(`${endpoint}/videos`)
+            tmdbClient.get(`${endpoint}/videos`),
+            tmdbClient.get(`${endpoint}/credits`)
         ]);
         
         const data = details.data;
         const videoData = videos.data;
+        const creditsData = credits.data;
+        
+        // Extrair diretor (para filmes) ou criador (para séries)
+        let diretor = null;
+        if (tipo === 'movie') {
+            const director = creditsData.crew?.find(c => c.job === 'Director');
+            diretor = director ? director.name : null;
+        } else {
+            diretor = data.created_by?.map(c => c.name).join(', ') || null;
+        }
         
         // Extrair trailer
         const trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
@@ -226,8 +219,8 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
         
         // Inserir conteúdo
         const [result] = await db.execute(
-            `INSERT INTO conteudos (tmdb_id, titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_rating)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO conteudos (tmdb_id, titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_rating, diretor)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 tmdb_id,
                 data.title || data.name,
@@ -237,7 +230,8 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
                 tipo === 'movie' ? 'filme' : 'serie',
                 data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
                 trailerUrl,
-                data.vote_average || null
+                data.vote_average || null,
+                diretor
             ]
         );
         
@@ -401,9 +395,14 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(400).json({ message: 'ID TMDB e tipo são obrigatórios.' });
         }
         
-        // Buscar detalhes do TMDB
-        const tmdbResponse = await tmdbClient.get(`/${media_type}/${tmdb_id}`);
+        // Buscar detalhes do TMDB (incluindo vídeos para trailer)
+        const [tmdbResponse, videosResponse] = await Promise.all([
+            tmdbClient.get(`/${media_type}/${tmdb_id}`),
+            tmdbClient.get(`/${media_type}/${tmdb_id}/videos`)
+        ]);
+        
         const tmdbData = tmdbResponse.data;
+        const videos = videosResponse.data.results || [];
         
         const titulo = tmdbData.title || tmdbData.name;
         const sinopse = tmdbData.overview || null;
@@ -412,6 +411,13 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
         const tipo = media_type === 'movie' ? 'filme' : 'serie';
         const poster_url = tmdbData.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}` : null;
         const duracao = tmdbData.runtime || null;
+        
+        // Encontrar trailer
+        const trailer = videos.find(v => 
+            v.type === 'Trailer' && v.site === 'YouTube' && (v.iso_639_1 === 'pt' || v.iso_639_1 === 'en')
+        ) || videos.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+        
+        const trailer_url = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
         
         // Verificar se já existe
         const [existing] = await db.execute(
@@ -429,9 +435,9 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
         
         // Inserir na base de dados
         const [result] = await db.execute(
-            `INSERT INTO conteudos (titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, tmdb_id, tmdb_rating)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, tmdb_id, tmdbData.vote_average || null]
+            `INSERT INTO conteudos (titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_id, tmdb_rating)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_id, tmdbData.vote_average || null]
         );
         
         res.json({ 

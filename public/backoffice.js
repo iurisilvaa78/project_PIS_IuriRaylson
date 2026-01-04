@@ -40,6 +40,8 @@ function loadDarkModePreference() {
     const darkMode = localStorage.getItem('darkMode');
     if (darkMode === 'enabled') {
         document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
     }
 }
 
@@ -64,6 +66,13 @@ function showSuccessMessage(message) {
         setTimeout(() => popup.remove(), 300);
     }, 3000);
 }
+
+// Garantir que o dark mode é aplicado quando a página é restaurada do cache
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        loadDarkModePreference();
+    }
+});
 
 window.addEventListener('DOMContentLoaded', () => {
     loadDarkModePreference();
@@ -582,10 +591,10 @@ function displayManageContent(conteudos) {
                 <div class="manage-top">
                     <div class="manage-text">
                         <h3>${conteudo.titulo}</h3>
-                        <p>${conteudo.tipo === 'filme' ? '🎬 Filme' : '📺 Série'}</p>
+                        <p>${conteudo.tipo === 'filme' ? 'Filme' : 'Série'}</p>
                         <p>Ano: ${conteudo.ano_lancamento || 'N/A'}</p>
-                        ${tmdbRating != null ? `<p class="rating">TMDB: ⭐ ${tmdbRating}/10</p>` : ''}
-                        <p class="rating">Utilizadores: ⭐ ${rating}/10</p>
+                        ${tmdbRating != null ? `<p class="rating">TMDB: ${tmdbRating}/10</p>` : ''}
+                        <p class="rating">Utilizadores: ${rating}/10</p>
                     </div>
 
                     <div class="manage-actions">

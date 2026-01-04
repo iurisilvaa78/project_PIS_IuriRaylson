@@ -25,7 +25,7 @@ async function updateConteudoRating(conteudo_id) {
 router.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const [users] = await db.execute(
-            `SELECT id, username, email, nome, is_admin, data_registo as created_at
+            `SELECT id, username, email, nome, is_admin, data_criacao as created_at
              FROM utilizadores
              ORDER BY id DESC`
         );

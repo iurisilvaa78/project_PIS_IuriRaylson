@@ -71,6 +71,8 @@ function loadDarkModePreference() {
     const darkMode = localStorage.getItem('darkMode');
     if (darkMode === 'enabled') {
         document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
     }
 }
 
@@ -95,6 +97,13 @@ function showSuccessMessage(message) {
         setTimeout(() => popup.remove(), 300);
     }, 3000);
 }
+
+// Garantir que o dark mode é aplicado quando a página é restaurada do cache
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        loadDarkModePreference();
+    }
+});
 
 window.addEventListener('DOMContentLoaded', () => {
     loadDarkModePreference();
@@ -133,7 +142,89 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // Form submit
     document.getElementById('review-form').addEventListener('submit', submitReview);
+    
+    // Inicializar sistema de estrelas
+    initStarRating();
+    
+    // Contador de caracteres
+    const comentarioInput = document.getElementById('comentario');
+    const charCount = document.getElementById('char-count');
+    if (comentarioInput && charCount) {
+        comentarioInput.addEventListener('input', () => {
+            charCount.textContent = comentarioInput.value.length;
+        });
+    }
 });
+
+function initStarRating() {
+    const starsContainer = document.getElementById('stars-container');
+    const avaliacaoInput = document.getElementById('avaliacao');
+    const ratingDisplay = document.getElementById('rating-display');
+    
+    if (!starsContainer) return;
+    
+    const stars = starsContainer.querySelectorAll('.star');
+    let selectedRating = 0;
+    
+    // Mensagens para cada avaliação
+    const ratingMessages = {
+        1: '1/10 - Horrível',
+        2: '2/10 - Muito mau',
+        3: '3/10 - Mau',
+        4: '4/10 - Fraco',
+        5: '5/10 - Mediano',
+        6: '6/10 - Aceitável',
+        7: '7/10 - Bom',
+        8: '8/10 - Muito bom',
+        9: '9/10 - Excelente',
+        10: '10/10 - Obra-prima!'
+    };
+    
+    stars.forEach((star, index) => {
+        // Click para selecionar
+        star.addEventListener('click', () => {
+            selectedRating = parseInt(star.dataset.value);
+            avaliacaoInput.value = selectedRating;
+            updateStars(selectedRating);
+            ratingDisplay.textContent = ratingMessages[selectedRating];
+        });
+        
+        // Hover para preview
+        star.addEventListener('mouseenter', () => {
+            const hoverValue = parseInt(star.dataset.value);
+            stars.forEach((s, i) => {
+                if (i < hoverValue) {
+                    s.classList.add('hover');
+                } else {
+                    s.classList.remove('hover');
+                }
+            });
+            if (!selectedRating) {
+                ratingDisplay.textContent = ratingMessages[hoverValue];
+            }
+        });
+    });
+    
+    // Remover hover ao sair
+    starsContainer.addEventListener('mouseleave', () => {
+        stars.forEach(s => s.classList.remove('hover'));
+        if (selectedRating) {
+            ratingDisplay.textContent = ratingMessages[selectedRating];
+        } else {
+            ratingDisplay.textContent = 'Selecione uma avaliação';
+        }
+    });
+    
+    function updateStars(rating) {
+        stars.forEach((star, index) => {
+            if (index < rating) {
+                star.classList.add('active');
+            } else {
+                star.classList.remove('active');
+            }
+        });
+    }
+}
 
 function getAuthHeaders() {
     return {
@@ -159,11 +250,18 @@ async function verifyAuth() {
                 }
             }
         } else {
-            logout();
+            console.log('Token inválido, a limpar sessão');
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            updateUI();
         }
     } catch (error) {
         console.error('Erro ao verificar autenticação:', error);
-        logout();
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        updateUI();
     }
 }
 
@@ -262,7 +360,7 @@ async function loadConteudoDetalhes() {
         const posterUrl = conteudo.poster_url || 'https://via.placeholder.com/300x450?text=Sem+Poster';
         
         container.innerHTML = `
-            <button type="button" class="btn-voltar">← Voltar</button>
+            <button type="button" class="btn-voltar">◄</button>
             <div class="detalhes-content">
                 <div class="detalhes-poster-container">
                     <img src="${posterUrl}" alt="${conteudo.titulo}" class="detalhes-poster">
@@ -271,26 +369,35 @@ async function loadConteudoDetalhes() {
                     <div class="detalhes-header">
                         <h1 class="detalhes-titulo">${conteudo.titulo}</h1>
                         ${currentUser ? `
-                            <button id="fav-btn" type="button" class="fav-heart fav-heart-inline" aria-label="Adicionar aos favoritos">♡</button>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <button id="fav-btn" type="button" class="fav-heart fav-heart-inline" aria-label="Adicionar aos favoritos" title="Adicionar aos favoritos">♡</button>
+                                <button id="add-to-list-btn" type="button" class="btn-add-to-list" aria-label="Adicionar à lista" title="Adicionar à Minha Lista" data-added="false">
+                                    <svg class="list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         ` : ''}
                     </div>
                     
                     <div class="detalhes-meta">
-                        <span class="badge ${conteudo.tipo}">${conteudo.tipo === 'filme' ? '🎬 Filme' : '📺 Série'}</span>
-                        <span class="meta-item">📅 ${conteudo.ano_lancamento || 'N/A'}</span>
-                        ${conteudo.duracao ? `<span class="meta-item">⏱️ ${conteudo.duracao} min</span>` : ''}
+                        <span class="badge ${conteudo.tipo}">${conteudo.tipo === 'filme' ? 'Filme' : 'Série'}</span>
+                        ${conteudo.diretor ? `<span class="meta-item">Diretor: ${conteudo.diretor}</span>` : ''}
+                        <span class="meta-item">Ano: ${conteudo.ano_lancamento || 'N/A'}</span>
+                        ${conteudo.duracao ? `<span class="meta-item">${conteudo.duracao} min</span>` : ''}
+                        ${conteudo.trailer_url ? `<button onclick="openTrailerModal('${conteudo.trailer_url}')" class="badge badge-trailer" title="Assistir Trailer">Trailer</button>` : ''}
                     </div>
                     
                     <div class="detalhes-rating">
                         ${conteudo.tmdb_id ? `
                             <div class="rating-row">
                                 <span class="rating-label">Avaliação TMDB:</span>
-                                <span class="rating-value">⭐ ${tmdbRating}/10</span>
+                                <span class="rating-value">${tmdbRating}/10</span>
                             </div>
                         ` : ''}
                         <div class="rating-row">
-                            <span class="rating-label">Avaliação HuntFilms:</span>
-                            <span class="rating-value">⭐ ${userRating}/10</span>
+                            <span class="rating-label">Avaliação HuntMovies:</span>
+                            <span class="rating-value">${userRating}/10</span>
                         </div>
                     </div>
                     
@@ -298,12 +405,6 @@ async function loadConteudoDetalhes() {
                         <h3>Sinopse</h3>
                         <p>${conteudo.sinopse || 'Sem sinopse disponível.'}</p>
                     </div>
-                    
-                    ${conteudo.trailer_url ? `
-                        <a href="${conteudo.trailer_url}" target="_blank" class="btn-trailer">
-                            ▶️ Ver Trailer
-                        </a>
-                    ` : ''}
                 </div>
             </div>
         `;
@@ -314,19 +415,18 @@ async function loadConteudoDetalhes() {
         // E também do botão de favoritos (não depende de onclick inline).
         if (currentUser && !currentUser.pending) {
             bindFavoriteButton(conteudo.id, container);
+            bindAddToListButton(conteudo.id, container);
+            // Sincronizar estados
+            await syncFavorito(conteudo.id);
+            await syncLista(conteudo.id);
         }
         
         document.getElementById('reviews-section').style.display = 'block';
         
-        // Atualizar UI para garantir que formulário apareça se usuário estiver logado
+        // Sincronizar favoritos e listas se o usuário estiver logado
         if (currentUser) {
-            const addReviewForm = document.getElementById('add-review-form');
-            if (addReviewForm) {
-                addReviewForm.style.display = 'block';
-            }
-
-            // Sincronizar estado do coração
             await syncFavorito(conteudo.id);
+            await syncLista(conteudo.id);
         }
         
     } catch (error) {
@@ -337,6 +437,7 @@ async function loadConteudoDetalhes() {
 
 async function loadReviews() {
     const reviewsList = document.getElementById('reviews-list');
+    const addReviewForm = document.getElementById('add-review-form');
     
     try {
         const response = await fetch(`${API_BASE}/reviews/conteudo/${conteudoId}`);
@@ -347,24 +448,84 @@ async function loadReviews() {
         
         const reviews = await response.json();
         
+        // Verificar se o utilizador atual já tem review
+        let userHasReview = false;
+        if (currentUser) {
+            // Verificar usando tanto 'id' quanto 'userId' para compatibilidade
+            const userId = currentUser.id || currentUser.userId;
+            userHasReview = reviews.some(review => {
+                return review.utilizador_id === userId || review.utilizador_id === currentUser.id || review.utilizador_id === currentUser.userId;
+            });
+            console.log('User ID:', userId, 'Has review:', userHasReview);
+        }
+        
+        // Mostrar ou esconder formulário baseado se já tem review
+        if (addReviewForm) {
+            if (currentUser && userHasReview) {
+                addReviewForm.style.display = 'none';
+                console.log('Formulário escondido - utilizador já tem review');
+            } else if (currentUser) {
+                addReviewForm.style.display = 'block';
+                console.log('Formulário visível - utilizador pode criar review');
+            } else {
+                addReviewForm.style.display = 'none';
+            }
+        }
+        
         if (reviews.length === 0) {
             reviewsList.innerHTML = '<p class="no-reviews">Ainda não há reviews para este conteúdo. Seja o primeiro a avaliar!</p>';
             return;
         }
         
-        reviewsList.innerHTML = reviews.map(review => `
+        reviewsList.innerHTML = reviews.map(review => {
+            const reviewDate = new Date(review.data_review);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = reviewDate.toLocaleDateString('pt-PT', options);
+            
+            return `
             <div class="review-card">
-                <div class="review-header">
-                    <span class="review-author">👤 ${review.username}</span>
-                    <span class="review-rating">⭐ ${review.avaliacao}/10</span>
+                <div class="review-card-inner">
+                    <div class="review-avatar">
+                        <div class="avatar-circle">${review.username.charAt(0).toUpperCase()}</div>
+                    </div>
+                    <div class="review-content">
+                        <div class="review-header-inline">
+                            <h3 class="review-title">Review de ${review.username}</h3>
+                            <span class="review-rating-badge">${review.avaliacao}/10</span>
+                        </div>
+                        <p class="review-meta">Escrita por <strong>${review.username}</strong> em ${formattedDate}</p>
+                        ${review.comentario ? `<p class="review-comment">${review.comentario}</p>` : '<p class="review-comment no-comment">Sem comentário disponível.</p>'}
+                        <div class="review-footer">
+                            <div class="review-actions">
+                                ${currentUser ? `
+                                    <button 
+                                        onclick="darLikeReview(${review.id})" 
+                                        class="btn-like ${currentUser.id === review.utilizador_id ? 'own-review' : ''}" 
+                                        id="like-btn-${review.id}" 
+                                        data-review-id="${review.id}"
+                                        ${currentUser.id === review.utilizador_id ? 'title="Não pode votar na sua própria review"' : ''}
+                                    >
+                                        <svg class="thumbs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                                        </svg>
+                                    </button>
+                                    <span class="review-count" id="count-${review.id}">${review.votos_utilidade || ''}</span>
+                                ` : ''}
+                            </div>
+                            ${currentUser && (currentUser.id === review.utilizador_id || currentUser.isAdmin) ? `
+                                <button onclick="deleteReview(${review.id})" class="btn-delete">Eliminar</button>
+                            ` : ''}
+                        </div>
+                    </div>
                 </div>
-                <p class="review-comment">${review.comentario}</p>
-                <p class="review-date">${new Date(review.data_review).toLocaleDateString('pt-PT')}</p>
-                ${currentUser && (currentUser.id === review.utilizador_id || currentUser.isAdmin) ? `
-                    <button onclick="deleteReview(${review.id})" class="btn-delete">Eliminar</button>
-                ` : ''}
             </div>
-        `).join('');
+        `;
+        }).join('');
+        
+        // Carregar estado dos likes
+        if (currentUser) {
+            await syncReviewLikes(reviews);
+        }
         
     } catch (error) {
         console.error('Erro ao carregar reviews:', error);
@@ -404,11 +565,21 @@ async function submitReview(event) {
         
         if (response.ok) {
             showSuccessMessage('Review adicionada com sucesso!');
+            // Limpar formulário
             document.getElementById('review-form').reset();
-            await loadReviews();
-            if (conteudoId) {
-                await loadConteudoDetalhes(); // Recarregar para atualizar rating médio
-            }
+            document.getElementById('avaliacao').value = '';
+            document.getElementById('rating-display').textContent = 'Selecione uma avaliação';
+            document.querySelectorAll('.star').forEach(star => star.classList.remove('active'));
+            document.getElementById('char-count').textContent = '0';
+            
+            // Pequeno delay para garantir que a review foi salva no banco
+            setTimeout(async () => {
+                // Recarregar reviews (irá esconder formulário)
+                await loadReviews();
+                if (conteudoId) {
+                    await loadConteudoDetalhes(); // Recarregar para atualizar rating médio
+                }
+            }, 300);
         } else {
             alert(data.message || 'Erro ao adicionar review');
         }
@@ -431,16 +602,117 @@ async function deleteReview(reviewId) {
         
         if (response.ok) {
             showSuccessMessage('Review eliminada com sucesso!');
+            // Recarregar reviews (irá mostrar formulário novamente)
             await loadReviews();
+            // Recarregar detalhes para atualizar rating
             if (conteudoId) {
                 await loadConteudoDetalhes();
             }
         } else {
-            alert('Erro ao eliminar review');
+            const data = await response.json();
+            alert(data.message || 'Erro ao eliminar review');
         }
     } catch (error) {
         console.error('Erro ao eliminar review:', error);
         alert('Erro ao eliminar review');
+    }
+}
+
+async function darLikeReview(reviewId) {
+    if (!currentUser) {
+        alert('Precisa de fazer login para votar!');
+        showLogin();
+        return;
+    }
+
+    const btn = document.getElementById(`like-btn-${reviewId}`);
+    
+    // Verificar se é a própria review
+    if (btn && btn.classList.contains('own-review')) {
+        return; // Não fazer nada se for a própria review
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/reviews/${reviewId}/voto`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            if (btn) {
+                const countSpan = document.getElementById(`count-${reviewId}`);
+                const thumbsIcon = btn.querySelector('.thumbs-icon');
+                
+                if (data.voted) {
+                    // Adicionar like
+                    btn.classList.add('liked');
+                    if (thumbsIcon) {
+                        thumbsIcon.setAttribute('fill', 'currentColor');
+                    }
+                    
+                    if (countSpan) {
+                        const currentCount = parseInt(countSpan.textContent) || 0;
+                        const newCount = currentCount + 1;
+                        countSpan.textContent = newCount;
+                        countSpan.style.display = 'inline';
+                    }
+                } else {
+                    // Remover like
+                    btn.classList.remove('liked');
+                    if (thumbsIcon) {
+                        thumbsIcon.setAttribute('fill', 'none');
+                    }
+                    
+                    if (countSpan) {
+                        const currentCount = parseInt(countSpan.textContent) || 0;
+                        const newCount = currentCount - 1;
+                        if (newCount > 0) {
+                            countSpan.textContent = newCount;
+                        } else {
+                            countSpan.textContent = '';
+                            countSpan.style.display = 'none';
+                        }
+                    }
+                }
+            }
+        } else {
+            if (data.message) {
+                alert(data.message);
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao votar na review:', error);
+        alert('Erro ao votar na review');
+    }
+}
+
+// Sincronizar estado dos likes das reviews
+async function syncReviewLikes(reviews) {
+    if (!currentUser) return;
+    
+    for (const review of reviews) {
+        if (review.utilizador_id === currentUser.id) continue;
+        
+        try {
+            const response = await fetch(`${API_BASE}/reviews/${review.id}/voto`, {
+                headers: getAuthHeaders()
+            });
+            
+            const data = await response.json();
+            const btn = document.getElementById(`like-btn-${review.id}`);
+            
+            if (btn && data.voted) {
+                btn.classList.add('liked');
+                const thumbsIcon = btn.querySelector('.thumbs-icon');
+                if (thumbsIcon) {
+                    thumbsIcon.setAttribute('fill', 'currentColor');
+                }
+            }
+        } catch (error) {
+            console.error(`Erro ao verificar like da review ${review.id}:`, error);
+        }
     }
 }
 
@@ -532,13 +804,26 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
         }
         
         // Não existe - carregar detalhes do TMDB
-        const response = await fetch(`/api/tmdb/${mediaType}/${tmdbId}`);
+        const [detailsResponse, creditsResponse] = await Promise.all([
+            fetch(`/api/tmdb/${mediaType}/${tmdbId}`),
+            fetch(`/api/tmdb/${mediaType}/${tmdbId}/credits`)
+        ]);
         
-        if (!response.ok) {
+        if (!detailsResponse.ok) {
             throw new Error('Conteúdo não encontrado na TMDB');
         }
         
-        const conteudo = await response.json();
+        const conteudo = await detailsResponse.json();
+        const credits = creditsResponse.ok ? await creditsResponse.json() : null;
+        
+        // Extrair diretor (para filmes) ou criador (para séries)
+        let diretor = null;
+        if (mediaType === 'movie' && credits?.crew) {
+            const director = credits.crew.find(c => c.job === 'Director');
+            diretor = director ? director.name : null;
+        } else if (conteudo.created_by && conteudo.created_by.length > 0) {
+            diretor = conteudo.created_by.map(c => c.name).join(', ');
+        }
         
         const titulo = conteudo.title || conteudo.name;
         const posterUrl = conteudo.poster_path ? `https://image.tmdb.org/t/p/w500${conteudo.poster_path}` : 'https://via.placeholder.com/300x450?text=Sem+Poster';
@@ -546,6 +831,7 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
         const tipo = mediaType === 'movie' ? 'Filme' : 'Série';
         const rating = conteudo.vote_average ? conteudo.vote_average.toFixed(1) : 'N/A';
         const sinopse = conteudo.overview || 'Sem sinopse disponível.';
+        const genres = conteudo.genres ? conteudo.genres.map(g => g.name).join(', ') : 'N/A';
         
         // Mostrar botão de importar apenas para admin
         const importBtn = currentUser && currentUser.isAdmin ? `
@@ -559,7 +845,7 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
             : 'ℹ️ Este conteúdo vem da base de dados TMDB. Peça a um administrador para importar este conteúdo.';
         
         container.innerHTML = `
-            <button type="button" class="btn-voltar">← Voltar</button>
+            <button type="button" class="btn-voltar">◄</button>
             <div class="detalhes-content">
                 <div class="detalhes-poster-container">
                     <img src="${posterUrl}" alt="${titulo}" class="detalhes-poster">
@@ -569,13 +855,16 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
                     <h1 class="detalhes-titulo">${titulo}</h1>
                     
                     <div class="detalhes-meta">
-                        <span class="badge ${mediaType}">${tipo === 'Filme' ? '🎬 Filme' : '📺 Série'}</span>
-                        <span class="meta-item">📅 ${ano}</span>
+                        <span class="badge ${mediaType}">${tipo === 'Filme' ? 'Filme' : 'Série'}</span>
+                        ${diretor ? `<span class="meta-item">${mediaType === 'movie' ? 'Diretor' : 'Criador'}: ${diretor}</span>` : ''}
+                        <span class="meta-item">Ano: ${ano}</span>
+                        <span class="meta-item">Géneros: ${genres}</span>
+                        ${conteudo.trailer_url ? `<button onclick="openTrailerModal('${conteudo.trailer_url}')" class="badge badge-trailer" title="Assistir Trailer">Trailer</button>` : ''}
                     </div>
                     
                     <div class="detalhes-rating">
                         <span class="rating-label">Avaliação TMDB:</span>
-                        <span class="rating-value">⭐ ${rating}/10</span>
+                        <span class="rating-value">${rating}/10</span>
                     </div>
                     
                     <div class="detalhes-sinopse">
@@ -608,7 +897,7 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
         container.innerHTML = `
             <div class="detalhes-header">
                 <h1>Erro</h1>
-                <button type="button" class="btn-voltar">← Voltar</button>
+                <button type="button" class="btn-voltar">◄</button>
             </div>
             <p>Erro ao carregar informações do conteúdo.</p>
         `;
@@ -801,3 +1090,156 @@ async function importarTMDB(tmdbId, mediaType) {
         alert('Erro ao importar conteúdo. Verifique a consola para mais detalhes.');
     }
 }
+
+// Bind do botão de adicionar à lista
+function bindAddToListButton(conteudoId, root = document) {
+    const btn = root.querySelector('#add-to-list-btn');
+    if (!btn) return;
+    if (btn.dataset.bound === '1') return;
+
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        adicionarAMinhaLista(conteudoId);
+    });
+}
+
+// Adicionar direto à lista do utilizador
+async function adicionarAMinhaLista(conteudoId) {
+    if (!currentUser) {
+        showLogin();
+        return;
+    }
+
+    const btn = document.getElementById('add-to-list-btn');
+    const isAdded = btn && btn.dataset.added === 'true';
+
+    try {
+        if (isAdded) {
+            // Remover da lista
+            const response = await fetch(`${API_BASE}/listas/minha-lista/${conteudoId}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                updateListaButton(btn, false);
+                showSuccessMessage('Removido da sua lista!');
+            } else {
+                alert(data.message || 'Erro ao remover da lista');
+            }
+        } else {
+            // Adicionar à lista
+            const response = await fetch(`${API_BASE}/listas/minha-lista`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ conteudo_id: conteudoId })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                updateListaButton(btn, true);
+                showSuccessMessage('Adicionado à sua lista!');
+            } else {
+                alert(data.message || 'Erro ao adicionar à lista');
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao gerenciar lista:', error);
+        alert('Erro ao atualizar lista');
+    }
+}
+
+// Atualizar botão da lista
+function updateListaButton(buttonEl, isAdded) {
+    if (!buttonEl) return;
+    buttonEl.dataset.added = isAdded ? 'true' : 'false';
+    buttonEl.classList.toggle('added', isAdded);
+    
+    const tooltip = isAdded ? 'Remover da Minha Lista' : 'Adicionar à Minha Lista';
+    buttonEl.setAttribute('aria-label', tooltip);
+    buttonEl.setAttribute('title', tooltip);
+    
+    const svg = buttonEl.querySelector('.list-icon');
+    if (svg) {
+        if (isAdded) {
+            svg.setAttribute('fill', 'currentColor');
+        } else {
+            svg.setAttribute('fill', 'none');
+        }
+    }
+}
+
+// Sincronizar estado da lista
+async function syncLista(conteudoId) {
+    if (!currentUser || !authToken) return;
+    const btn = document.getElementById('add-to-list-btn');
+    if (!btn) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/listas/minha-lista`, {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) return;
+        const conteudos = await response.json();
+        const isAdded = conteudos.some(c => c.id === parseInt(conteudoId));
+        updateListaButton(btn, isAdded);
+    } catch (error) {
+        console.error('Erro ao sincronizar lista:', error);
+    }
+}
+
+// Funções para modal do trailer
+function openTrailerModal(trailerUrl) {
+    const modal = document.getElementById('trailer-modal');
+    const container = document.getElementById('trailer-container');
+    
+    // Extrair ID do vídeo do YouTube
+    let videoId = '';
+    if (trailerUrl.includes('youtube.com/watch?v=')) {
+        videoId = trailerUrl.split('v=')[1].split('&')[0];
+    } else if (trailerUrl.includes('youtu.be/')) {
+        videoId = trailerUrl.split('youtu.be/')[1].split('?')[0];
+    }
+    
+    if (videoId) {
+        container.innerHTML = `
+            <iframe 
+                width="100%" 
+                height="100%" 
+                src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+            </iframe>
+        `;
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeTrailerModal() {
+    const modal = document.getElementById('trailer-modal');
+    const container = document.getElementById('trailer-container');
+    modal.style.display = 'none';
+    container.innerHTML = '';
+    document.body.style.overflow = 'auto';
+}
+
+// Fechar modal ao clicar fora
+window.addEventListener('click', function(event) {
+    const trailerModal = document.getElementById('trailer-modal');
+    if (event.target === trailerModal) {
+        closeTrailerModal();
+    }
+});
+
+// Fechar modal com tecla ESC
+window.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeTrailerModal();
+    }
+});

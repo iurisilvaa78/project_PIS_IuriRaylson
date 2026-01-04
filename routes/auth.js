@@ -51,7 +51,7 @@ router.post('/login', async (req, res) => {
         
         // Buscar utilizador
         const [users] = await db.execute(
-            'SELECT id, username, email, nome, password, is_admin, data_registo as created_at FROM utilizadores WHERE username = ? OR email = ?',
+            'SELECT id, username, email, nome, password, is_admin, data_criacao as created_at FROM utilizadores WHERE username = ? OR email = ?',
             [username, username]
         );
         
@@ -97,7 +97,7 @@ router.get('/verify', require('../middleware/auth').verifyJWT, async (req, res) 
     try {
         // Buscar dados completos do utilizador
         const [users] = await db.execute(
-            'SELECT id, username, email, nome, is_admin, data_registo as created_at FROM utilizadores WHERE id = ?',
+            'SELECT id, username, email, nome, is_admin, data_criacao as created_at FROM utilizadores WHERE id = ?',
             [req.userId]
         );
         

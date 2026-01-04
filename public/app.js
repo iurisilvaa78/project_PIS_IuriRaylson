@@ -590,6 +590,8 @@ function displayContent(conteudos, isTMDB = false) {
             const titulo = conteudo.title || conteudo.name;
             const posterUrl = conteudo.poster_path ? `https://image.tmdb.org/t/p/w500${conteudo.poster_path}` : 'https://via.placeholder.com/200x300?text=Sem+Poster';
             const ano = conteudo.release_date ? new Date(conteudo.release_date).getFullYear() : (conteudo.first_air_date ? new Date(conteudo.first_air_date).getFullYear() : 'N/A');
+            const dataEstreia = conteudo.release_date || conteudo.first_air_date;
+            const dataFormatada = dataEstreia ? new Date(dataEstreia).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
             const tipo = conteudo.title ? 'Filme' : 'Série';
             const rating = conteudo.vote_average ? conteudo.vote_average.toFixed(1) : 'N/A';
             
@@ -598,9 +600,9 @@ function displayContent(conteudos, isTMDB = false) {
                      alt="${titulo}" 
                      onerror="this.src='https://via.placeholder.com/200x300?text=Sem+Poster'">
                 <div class="content-card-info">
-                    <h3>${titulo}</h3>
+                    <h3>${titulo}${ano !== 'N/A' ? ` (${ano})` : ''}</h3>
                     <p>${tipo}</p>
-                    <p>Ano: ${ano}</p>
+                    ${dataFormatada ? `<p class="data-estreia">${dataFormatada}</p>` : ''}
                     <p class="rating">${rating}/10</p>
                 </div>
             `;
@@ -619,9 +621,9 @@ function displayContent(conteudos, isTMDB = false) {
                      alt="${conteudo.titulo}" 
                      onerror="this.src='https://via.placeholder.com/200x300?text=Sem+Poster'">
                 <div class="content-card-info">
-                    <h3>${conteudo.titulo}</h3>
+                    <h3>${conteudo.titulo}${conteudo.ano_lancamento ? ` (${conteudo.ano_lancamento})` : ''}</h3>
                     <p>${conteudo.tipo === 'filme' ? 'Filme' : 'Série'}</p>
-                    <p>Ano: ${conteudo.ano_lancamento || 'N/A'}</p>
+                    ${conteudo.ano_lancamento ? `<p class="data-estreia">${conteudo.ano_lancamento}</p>` : ''}
                     ${ratingHtml}
                 </div>
             `;

@@ -94,6 +94,22 @@ CREATE TABLE lista_conteudos (
     UNIQUE KEY unique_lista_conteudo (lista_id, conteudo_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Tabela de géneros
+CREATE TABLE generos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) UNIQUE NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela de relação entre conteúdos e géneros
+CREATE TABLE conteudo_generos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    conteudo_id INT NOT NULL,
+    genero_id INT NOT NULL,
+    FOREIGN KEY (conteudo_id) REFERENCES conteudos(id) ON DELETE CASCADE,
+    FOREIGN KEY (genero_id) REFERENCES generos(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_conteudo_genero (conteudo_id, genero_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Inserir utilizador admin padrão (password: admin123)
 INSERT INTO utilizadores (username, email, password, nome, is_admin) 
 VALUES ('admin', 'admin@dbprojectpis.com', '$2b$10$zOSriImLdMeM6f2dw00ohOV4hPiLhocHZG3Zwztb/iL50x.0xpcYi', 'Administrador', TRUE);

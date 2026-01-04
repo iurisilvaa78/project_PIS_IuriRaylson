@@ -295,6 +295,9 @@ function displayUsers(users) {
                     <button class="admin-btn primary" onclick="saveUser(${user.id})">
                         Guardar
                     </button>
+                    <button class="admin-btn delete" onclick="deleteUser(${user.id}, '${escapeHtml(user.username)}')">
+                        Eliminar
+                    </button>
                 </div>
             </div>
         `;
@@ -329,6 +332,29 @@ async function saveUser(userId) {
     } catch (error) {
         console.error('Erro ao atualizar utilizador:', error);
         alert('Erro ao atualizar utilizador');
+    }
+}
+
+async function deleteUser(userId, username) {
+    if (!confirm(`Tem a certeza que deseja eliminar o utilizador "${username}"?\n\nEsta ação é irreversível e eliminará:\n- Todas as reviews\n- Todos os favoritos\n- Todas as listas\n- Todos os votos\n\ndo utilizador.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (response.ok) {
+            showSuccessMessage('Utilizador eliminado com sucesso!');
+            loadUsers();
+        } else {
+            alert(data.message || 'Erro ao eliminar utilizador');
+        }
+    } catch (error) {
+        console.error('Erro ao eliminar utilizador:', error);
+        alert('Erro ao eliminar utilizador');
     }
 }
 

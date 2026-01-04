@@ -367,7 +367,7 @@ async function loadConteudoDetalhes() {
                 </div>
                 <div class="detalhes-info">
                     <div class="detalhes-header">
-                        <h1 class="detalhes-titulo">${conteudo.titulo}</h1>
+                        <h1 class="detalhes-titulo">${conteudo.titulo}${conteudo.ano_lancamento ? ` (${conteudo.ano_lancamento})` : ''}</h1>
                         ${currentUser ? `
                             <div style="display: flex; gap: 10px; align-items: center;">
                                 <button id="fav-btn" type="button" class="fav-heart fav-heart-inline" aria-label="Adicionar aos favoritos" title="Adicionar aos favoritos">♡</button>
@@ -383,7 +383,7 @@ async function loadConteudoDetalhes() {
                     <div class="detalhes-meta">
                         <span class="badge ${conteudo.tipo}">${conteudo.tipo === 'filme' ? 'Filme' : 'Série'}</span>
                         ${conteudo.diretor ? `<span class="meta-item">Diretor: ${conteudo.diretor}</span>` : ''}
-                        <span class="meta-item">Ano: ${conteudo.ano_lancamento || 'N/A'}</span>
+                        ${conteudo.generos ? `<span class="meta-item">Géneros: ${conteudo.generos}</span>` : ''}
                         ${conteudo.duracao ? `<span class="meta-item">${conteudo.duracao} min</span>` : ''}
                         ${conteudo.trailer_url ? `<button onclick="openTrailerModal('${conteudo.trailer_url}')" class="badge badge-trailer" title="Assistir Trailer">Trailer</button>` : ''}
                     </div>
@@ -852,12 +852,11 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
                     ${importBtn}
                 </div>
                 <div class="detalhes-info">
-                    <h1 class="detalhes-titulo">${titulo}</h1>
+                    <h1 class="detalhes-titulo">${titulo}${ano && ano !== 'N/A' ? ` (${ano})` : ''}</h1>
                     
                     <div class="detalhes-meta">
                         <span class="badge ${mediaType}">${tipo === 'Filme' ? 'Filme' : 'Série'}</span>
                         ${diretor ? `<span class="meta-item">${mediaType === 'movie' ? 'Diretor' : 'Criador'}: ${diretor}</span>` : ''}
-                        <span class="meta-item">Ano: ${ano}</span>
                         <span class="meta-item">Géneros: ${genres}</span>
                         ${conteudo.trailer_url ? `<button onclick="openTrailerModal('${conteudo.trailer_url}')" class="badge badge-trailer" title="Assistir Trailer">Trailer</button>` : ''}
                     </div>

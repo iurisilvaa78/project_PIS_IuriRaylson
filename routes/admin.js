@@ -90,6 +90,36 @@ router.put('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
+// Eliminar utilizador
+router.delete('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Não permitir eliminar o próprio utilizador
+        if (parseInt(id) === req.userId) {
+            return res.status(400).json({ message: 'Não pode eliminar a sua própria conta.' });
+        }
+        
+        // Verificar se existe
+        const [existing] = await db.execute(
+            'SELECT id FROM utilizadores WHERE id = ?',
+            [id]
+        );
+        
+        if (existing.length === 0) {
+            return res.status(404).json({ message: 'Utilizador não encontrado.' });
+        }
+        
+        // Eliminar utilizador (CASCADE eliminará reviews, favoritos, listas, etc.)
+        await db.execute('DELETE FROM utilizadores WHERE id = ?', [id]);
+        
+        res.json({ message: 'Utilizador eliminado com sucesso.' });
+    } catch (error) {
+        console.error('Erro ao eliminar utilizador (admin):', error);
+        res.status(500).json({ message: 'Erro ao eliminar utilizador.' });
+    }
+});
+
 // =========================
 // Reviews (Admin)
 // =========================

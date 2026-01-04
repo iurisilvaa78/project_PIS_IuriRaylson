@@ -54,6 +54,17 @@ router.get('/:id', async (req, res) => {
         
         const conteudo = conteudos[0];
         
+        // Buscar géneros
+        const [generos] = await db.execute(
+            `SELECT g.nome
+             FROM conteudo_generos cg
+             INNER JOIN generos g ON cg.genero_id = g.id
+             WHERE cg.conteudo_id = ?`,
+            [id]
+        );
+        
+        conteudo.generos = generos.map(g => g.nome).join(', ');
+        
         // Buscar reviews
         const [reviews] = await db.execute(
             `SELECT r.*, u.username, u.nome as nome_utilizador
@@ -395,14 +406,16 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(400).json({ message: 'ID TMDB e tipo são obrigatórios.' });
         }
         
-        // Buscar detalhes do TMDB (incluindo vídeos para trailer)
-        const [tmdbResponse, videosResponse] = await Promise.all([
+        // Buscar detalhes do TMDB (incluindo vídeos e créditos)
+        const [tmdbResponse, videosResponse, creditsResponse] = await Promise.all([
             tmdbClient.get(`/${media_type}/${tmdb_id}`),
-            tmdbClient.get(`/${media_type}/${tmdb_id}/videos`)
+            tmdbClient.get(`/${media_type}/${tmdb_id}/videos`),
+            tmdbClient.get(`/${media_type}/${tmdb_id}/credits`)
         ]);
         
         const tmdbData = tmdbResponse.data;
         const videos = videosResponse.data.results || [];
+        const creditsData = creditsResponse.data;
         
         const titulo = tmdbData.title || tmdbData.name;
         const sinopse = tmdbData.overview || null;
@@ -411,6 +424,15 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
         const tipo = media_type === 'movie' ? 'filme' : 'serie';
         const poster_url = tmdbData.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}` : null;
         const duracao = tmdbData.runtime || null;
+        
+        // Extrair diretor (para filmes) ou criador (para séries)
+        let diretor = null;
+        if (media_type === 'movie') {
+            const director = creditsData.crew?.find(c => c.job === 'Director');
+            diretor = director ? director.name : null;
+        } else {
+            diretor = tmdbData.created_by?.map(c => c.name).join(', ') || null;
+        }
         
         // Encontrar trailer
         const trailer = videos.find(v => 
@@ -435,14 +457,37 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
         
         // Inserir na base de dados
         const [result] = await db.execute(
-            `INSERT INTO conteudos (titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_id, tmdb_rating)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_id, tmdbData.vote_average || null]
+            `INSERT INTO conteudos (titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_id, tmdb_rating, diretor)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_id, tmdbData.vote_average || null, diretor]
         );
+        
+        const conteudoId = result.insertId;
+        
+        // Inserir géneros
+        if (tmdbData.genres && tmdbData.genres.length > 0) {
+            for (const genre of tmdbData.genres) {
+                // Verificar se género existe, se não criar
+                let [generos] = await db.execute('SELECT id FROM generos WHERE nome = ?', [genre.name]);
+                let generoId;
+                
+                if (generos.length === 0) {
+                    const [newGenre] = await db.execute('INSERT INTO generos (nome) VALUES (?)', [genre.name]);
+                    generoId = newGenre.insertId;
+                } else {
+                    generoId = generos[0].id;
+                }
+                
+                await db.execute(
+                    'INSERT INTO conteudo_generos (conteudo_id, genero_id) VALUES (?, ?)',
+                    [conteudoId, generoId]
+                );
+            }
+        }
         
         res.json({ 
             message: 'Conteúdo importado com sucesso!',
-            id: result.insertId
+            id: conteudoId
         });
     } catch (error) {
         console.error('Erro ao importar TMDB:', error);

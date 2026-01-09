@@ -1,5 +1,3 @@
--- Script para criar base de dados dbprojectpis
-
 -- Criar nova base de dados
 DROP DATABASE IF EXISTS dbprojectpis;
 CREATE DATABASE dbprojectpis CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -108,6 +106,19 @@ CREATE TABLE conteudo_generos (
     FOREIGN KEY (conteudo_id) REFERENCES conteudos(id) ON DELETE CASCADE,
     FOREIGN KEY (genero_id) REFERENCES generos(id) ON DELETE CASCADE,
     UNIQUE KEY unique_conteudo_genero (conteudo_id, genero_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela de elenco
+CREATE TABLE elenco (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    conteudo_id INT NOT NULL,
+    tmdb_id INT,
+    nome VARCHAR(255) NOT NULL,
+    personagem VARCHAR(255),
+    foto_url VARCHAR(500),
+    ordem INT DEFAULT 0,
+    FOREIGN KEY (conteudo_id) REFERENCES conteudos(id) ON DELETE CASCADE,
+    INDEX idx_conteudo (conteudo_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Inserir utilizador admin padrão (password: admin123)

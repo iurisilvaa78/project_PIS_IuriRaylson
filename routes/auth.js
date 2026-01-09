@@ -1,3 +1,15 @@
+/*
+ * Rotas de Autenticação
+ * 
+ * Gestão de registo, login, verificação e atualização de utilizadores
+ * 
+ * Rotas:
+ * - POST /api/auth/register - Registo de novo utilizador
+ * - POST /api/auth/login - Login e geração de token JWT
+ * - GET /api/auth/verify - Verificar token e obter dados do utilizador
+ * - PUT /api/auth/update - Atualizar perfil do utilizador
+ */
+
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -5,7 +17,11 @@ const bcrypt = require('bcryptjs');
 const db = require('../config/database');
 require('dotenv').config();
 
-// Registro de utilizador
+/**
+ * POST /api/auth/register
+ * Regista um novo utilizador no sistema
+ * Valida dados obrigatórios e encripta password com bcrypt
+ */
 router.post('/register', async (req, res) => {
     try {
         const { username, email, password, nome } = req.body;
@@ -14,7 +30,6 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'Username, email e password são obrigatórios.' });
         }
         
-        // Verificar se utilizador já existe
         const [existingUser] = await db.execute(
             'SELECT id FROM utilizadores WHERE username = ? OR email = ?',
             [username, email]
@@ -24,10 +39,8 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'Utilizador já existe.' });
         }
         
-        // Hash da password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Inserir utilizador
         const [result] = await db.execute(
             'INSERT INTO utilizadores (username, email, password, nome) VALUES (?, ?, ?, ?)',
             [username, email, hashedPassword, nome || null]
@@ -40,7 +53,11 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// Login
+/**
+ * POST /api/auth/login
+ * Autentica utilizador e retorna token JWT
+ * Valida credenciais, compara password encriptada e gera token com expiração
+ */
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -49,7 +66,6 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Username e password são obrigatórios.' });
         }
         
-        // Buscar utilizador
         const [users] = await db.execute(
             'SELECT id, username, email, nome, password, is_admin, data_criacao as created_at FROM utilizadores WHERE username = ? OR email = ?',
             [username, username]
@@ -61,13 +77,11 @@ router.post('/login', async (req, res) => {
         
         const user = users[0];
         
-        // Verificar password
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
             return res.status(401).json({ message: 'Credenciais inválidas.' });
         }
         
-        // Gerar token JWT
         const token = jwt.sign(
             { id: user.id, isAdmin: user.is_admin },
             process.env.JWT_SECRET || 'palavrasecreta',
@@ -92,10 +106,13 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Verificar token
+/**
+ * GET /api/auth/verify
+ * Verifica token JWT e retorna dados do utilizador autenticado
+ * Requer: Token JWT válido
+ */
 router.get('/verify', require('../middleware/auth').verifyJWT, async (req, res) => {
     try {
-        // Buscar dados completos do utilizador
         const [users] = await db.execute(
             'SELECT id, username, email, nome, is_admin, data_criacao as created_at FROM utilizadores WHERE id = ?',
             [req.userId]
@@ -122,18 +139,21 @@ router.get('/verify', require('../middleware/auth').verifyJWT, async (req, res) 
     }
 });
 
-// Atualizar perfil
+/**
+ * PUT /api/auth/update
+ * Atualiza dados do perfil do utilizador autenticado
+ * Permite atualizar email, nome e password
+ * Requer: Token JWT válido
+ */
 router.put('/update', require('../middleware/auth').verifyJWT, async (req, res) => {
     try {
         const { email, nome, password } = req.body;
         const userId = req.userId;
         
-        // Validar email
         if (!email) {
             return res.status(400).json({ message: 'Email é obrigatório.' });
         }
         
-        // Verificar se email já está em uso por outro utilizador
         const [existingUser] = await db.execute(
             'SELECT id FROM utilizadores WHERE email = ? AND id != ?',
             [email, userId]
@@ -143,16 +163,13 @@ router.put('/update', require('../middleware/auth').verifyJWT, async (req, res) 
             return res.status(400).json({ message: 'Este email já está em uso.' });
         }
         
-        // Atualizar dados
         if (password) {
-            // Se forneceu nova password, fazer hash
             const hashedPassword = await bcrypt.hash(password, 10);
             await db.execute(
                 'UPDATE utilizadores SET email = ?, nome = ?, password = ? WHERE id = ?',
                 [email, nome || null, hashedPassword, userId]
             );
         } else {
-            // Sem alteração de password
             await db.execute(
                 'UPDATE utilizadores SET email = ?, nome = ? WHERE id = ?',
                 [email, nome || null, userId]

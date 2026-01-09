@@ -1,3 +1,14 @@
+/*
+ * Servidor Principal da Aplicação
+ * Gestão de filmes e séries com integração TMDB
+ * 
+ * Funcionalidades:
+ * - Configuração do servidor Express
+ * - Gestão de rotas da API
+ * - Migrações automáticas da base de dados
+ * - Integração com TMDB para dados de filmes/séries
+ */
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -6,6 +17,11 @@ const db = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/**
+ * Função para garantir que o esquema da base de dados está atualizado
+ * Verifica e aplica migrações necessárias (ex: adicionar coluna tmdb_rating)
+ * Migra dados antigos de rating para tmdb_rating quando aplicável
+ */
 async function ensureSchema() {
     try {
         const [cols] = await db.execute(
@@ -43,18 +59,20 @@ async function ensureSchema() {
     }
 }
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Configuração de middlewares
+app.use(cors()); // Permite requisições de diferentes origens
+app.use(express.json()); // Parser para JSON no body das requisições
+app.use(express.urlencoded({ extended: true })); // Parser para dados de formulários
+app.use(express.static('public')); // Serve ficheiros estáticos da pasta public
 
-// Servir ficheiros estáticos
-app.use(express.static('public'));
-
+/**
+ * Função para iniciar o servidor
+ * Aplica migrações e regista todas as rotas da API
+ */
 async function startServer() {
     await ensureSchema();
 
-    // Rotas
+    // Registar todas as rotas da API
     try {
         app.use('/api/auth', require('./routes/auth'));
         app.use('/api/conteudos', require('./routes/conteudos'));
@@ -68,18 +86,18 @@ async function startServer() {
         console.error('Erro ao carregar rotas:', error);
     }
 
-    // Rota raiz
+    
     app.get('/', (req, res) => {
         res.sendFile(__dirname + '/public/index.html');
     });
 
-    // Middleware para rotas não encontradas
+    
     app.use((req, res) => {
         console.log(`Rota não encontrada: ${req.method} ${req.url}`);
         res.status(404).json({ message: 'Rota não encontrada' });
     });
 
-    // Iniciar servidor
+    
     app.listen(PORT, () => {
         console.log(`Servidor a correr na porta ${PORT}`);
         console.log(`http://localhost:${PORT}`);

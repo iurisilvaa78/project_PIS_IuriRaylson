@@ -1,21 +1,34 @@
+/*
+ * Aplicação Frontend Principal (Frontoffice)
+ * 
+ * Página inicial da plataforma de filmes e séries
+ * Funcionalidades:
+ * - Listagem de conteúdos com paginação infinita
+ * - Filtros por tipo (filme/série) e género
+ * - Pesquisa de conteúdos
+ * - Sistema de favoritos
+ * - Autenticação e gestão de utilizador
+ * - Modo escuro
+ */
+
+// Constantes e variáveis globais
 const API_BASE = '/api';
-let currentUser = null;
-let authToken = null;
-let currentPage = 1;
-let isLoading = false;
-let totalPages = 1;
-let currentSearch = '';
-let currentTipo = '';
-let currentGenre = '';
+let currentUser = null; // Dados do utilizador autenticado
+let authToken = null; // Token JWT para autenticação
+let currentPage = 1; // Página atual de conteúdos
+let isLoading = false; // Flag para prevenir múltiplos carregamentos
+let totalPages = 1; // Total de páginas disponíveis
+let currentSearch = ''; // Termo de pesquisa atual
+let currentTipo = ''; // Filtro de tipo (filme/série)
+let currentGenre = ''; // Filtro de género
+let favoriteIds = new Set(); // IDs dos conteúdos favoritos
+let favoritesLoaded = false; // Flag se favoritos já foram carregados
+let movieGenres = {}; // Mapa de géneros de filmes (id => nome)
+let tvGenres = {}; // Mapa de géneros de séries (id => nome)
 
-// Favoritos (para mostrar coração cheio/vazio)
-let favoriteIds = new Set();
-let favoritesLoaded = false;
-
-// Cache de géneros
-let movieGenres = {};
-let tvGenres = {};
-
+/**
+ * Associa eventos aos botões de autenticação
+ */
 function bindAuthButtons() {
     const loginBtn = document.getElementById('login-btn');
     const registerBtn = document.getElementById('register-btn');
@@ -43,13 +56,19 @@ function bindAuthButtons() {
     }
 }
 
-// Dark Mode
+/**
+ * Alterna entre modo escuro e claro
+ * Guarda preferência no localStorage
+ */
 function toggleDarkMode() {
     document.body.classList.toggle('dark-mode');
     const isDarkMode = document.body.classList.contains('dark-mode');
     localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
 }
 
+/**
+ * Carrega preferência de modo escuro do localStorage
+ */
 function loadDarkModePreference() {
     const darkMode = localStorage.getItem('darkMode');
     if (darkMode === 'enabled') {
@@ -59,7 +78,12 @@ function loadDarkModePreference() {
     }
 }
 
-// Success Message Pop-up
+/**
+ * Exibe mensagem de sucesso temporária (popup)
+ * A mensagem desaparece automaticamente após 3 segundos
+ * 
+ * @param {string} message - Mensagem a exibir
+ */
 function showSuccessMessage(message) {
     const popup = document.createElement('div');
     popup.className = 'success-popup';
@@ -81,7 +105,13 @@ function showSuccessMessage(message) {
     }, 3000);
 }
 
-// Função para mapear tipos do frontend para TMDB
+/**
+ * Converte tipo de conteúdo local para formato TMDB
+ * filme => movie, serie => tv
+ * 
+ * @param {string} tipo - Tipo local (filme/serie)
+ * @returns {string} Tipo TMDB (movie/tv)
+ */
 function mapTipoToTMDB(tipo) {
     switch (tipo) {
         case 'filme':
@@ -90,13 +120,16 @@ function mapTipoToTMDB(tipo) {
             return 'tv';
         case '':
         case 'todos':
-            return 'movie'; // Para "todos", vamos buscar filmes por padrão, mas poderíamos implementar lógica para buscar ambos
+            return 'movie';
         default:
             return 'movie';
     }
 }
 
-// Carregar géneros da TMDB
+/**
+ * Carrega géneros de filmes e séries do TMDB
+ * Popula os mapas movieGenres e tvGenres
+ */
 async function loadGenres() {
     try {
         const [movieResponse, tvResponse] = await Promise.all([
@@ -107,7 +140,6 @@ async function loadGenres() {
         const movieData = await movieResponse.json();
         const tvData = await tvResponse.json();
         
-        // Criar mapa de ID para nome
         movieGenres = {};
         tvGenres = {};
         
@@ -120,12 +152,14 @@ async function loadGenres() {
     }
 }
 
-// Carregar géneros no select baseado no tipo selecionado
+/**
+ * Popula o filtro de géneros baseado no tipo selecionado
+ * Mostra géneros de filmes ou séries conforme seleção
+ */
 function loadGenresForType() {
     const tipoFilter = document.getElementById('tipo-filter').value;
     const genreFilter = document.getElementById('genre-filter');
     
-    // Limpar opções existentes
     genreFilter.innerHTML = '<option value="">Todos os géneros</option>';
     
     let genres = [];
@@ -134,15 +168,12 @@ function loadGenresForType() {
     } else if (tipoFilter === 'serie') {
         genres = Object.entries(tvGenres);
     } else {
-        // Combinar géneros de filmes e séries (sem duplicados)
         const allGenres = { ...movieGenres, ...tvGenres };
         genres = Object.entries(allGenres);
     }
     
-    // Ordenar alfabeticamente
     genres.sort((a, b) => a[1].localeCompare(b[1]));
     
-    // Adicionar opções
     genres.forEach(([id, name]) => {
         const option = document.createElement('option');
         option.value = id;
@@ -151,7 +182,13 @@ function loadGenresForType() {
     });
 }
 
-// Obter nomes dos géneros de um conteúdo
+/**
+ * Converte IDs de géneros para nomes legíveis
+ * 
+ * @param {Array} genreIds - Array de IDs de géneros
+ * @param {string} mediaType - Tipo de mídia (movie/tv)
+ * @returns {string} Nomes dos géneros separados por vírgula
+ */
 function getGenreNames(genreIds, mediaType) {
     if (!genreIds || !Array.isArray(genreIds)) return '';
     
@@ -162,32 +199,31 @@ function getGenreNames(genreIds, mediaType) {
         .join(', ');
 }
 
-// Verificar se há token salvo
-// Garantir que o dark mode é aplicado quando a página é restaurada do cache
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
         loadDarkModePreference();
     }
 });
 
+/**
+ * Inicialização quando o DOM está pronto
+ * Configura eventos, verifica autenticação e carrega conteúdos
+ */
 window.addEventListener('DOMContentLoaded', () => {
     console.log('DOMContentLoaded - inicializando app');
     loadDarkModePreference();
     bindAuthButtons();
     authToken = localStorage.getItem('authToken');
     if (authToken) {
-        // Oculta botões enquanto valida o token
         currentUser = { pending: true };
         updateUI();
         verifyAuth();
     } else {
-        // Garantir que UI está no estado correto mesmo sem login
         updateUI();
     }
     loadGenres();
     loadContent();
     
-    // Adicionar event listeners para filtros
     document.getElementById('tipo-filter').addEventListener('change', () => {
         filterContent();
         loadGenresForType();
@@ -195,9 +231,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('genre-filter').addEventListener('change', filterContent);
 });
 
-// Re-verificar auth quando volta à página (botão voltar do browser)
 window.addEventListener('pageshow', (event) => {
-    // Se a página foi carregada do cache (back/forward)
     if (event.persisted) {
         console.log('Página carregada do cache - re-verificando auth');
         authToken = localStorage.getItem('authToken');
@@ -210,6 +244,12 @@ window.addEventListener('pageshow', (event) => {
     }
 });
 
+/**
+ * Cria headers de autenticação para requisições HTTP
+ * Inclui token JWT no header x-access-token
+ * 
+ * @returns {Object} Headers com token de autenticação
+ */
 function getAuthHeaders() {
     return {
         'Content-Type': 'application/json',
@@ -217,6 +257,11 @@ function getAuthHeaders() {
     };
 }
 
+/**
+ * Verifica validade do token JWT no servidor
+ * Carrega dados do utilizador se token for válido
+ * Remove token e limpa sessão se inválido
+ */
 async function verifyAuth() {
     try {
         const response = await fetch(`${API_BASE}/auth/verify`, {
@@ -228,7 +273,6 @@ async function verifyAuth() {
             console.log('Utilizador verificado:', currentUser);
             updateUI();
 
-            // Carregar favoritos e re-renderizar para mostrar o coração certo.
             await loadFavoriteIds();
             loadContent(currentPage);
         } else {
@@ -249,6 +293,12 @@ async function verifyAuth() {
     }
 }
 
+/**
+ * Atualiza visualmente o botão de favorito (coração)
+ * 
+ * @param {HTMLElement} buttonEl - Elemento do botão
+ * @param {boolean} isFavorite - Se é favorito ou não
+ */
 function updateHeartButton(buttonEl, isFavorite) {
     if (!buttonEl) return;
     buttonEl.classList.toggle('is-favorite', isFavorite);
@@ -256,6 +306,10 @@ function updateHeartButton(buttonEl, isFavorite) {
     buttonEl.setAttribute('aria-label', isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
 }
 
+/**
+ * Carrega IDs dos conteúdos favoritos do utilizador
+ * Usado para marcar visualmente os favoritos na interface
+ */
 async function loadFavoriteIds() {
     favoritesLoaded = false;
     favoriteIds = new Set();
@@ -277,6 +331,13 @@ async function loadFavoriteIds() {
     }
 }
 
+/**
+ * Adiciona ou remove conteúdo dos favoritos
+ * Requer autenticação - redireciona para login se necessário
+ * 
+ * @param {number} conteudoId - ID do conteúdo
+ * @param {HTMLElement} buttonEl - Botão de favorito a atualizar
+ */
 async function toggleFavorite(conteudoId, buttonEl) {
     if (!authToken || !currentUser || currentUser.pending) {
         showLogin();
@@ -310,6 +371,10 @@ async function toggleFavorite(conteudoId, buttonEl) {
     }
 }
 
+/**
+ * Atualiza elementos da interface conforme estado de autenticação
+ * Mostra/esconde botões de login, logout, perfil e backoffice
+ */
 function updateUI() {
     const loginBtn = document.getElementById('login-btn');
     const registerBtn = document.getElementById('register-btn');
@@ -327,7 +392,6 @@ function updateUI() {
         logoutBtn.style.display = 'inline-block';
         userInfo.style.display = 'inline-block';
         userInfo.textContent = `Olá, ${currentUser.username || currentUser.nome || 'Utilizador'}`;
-            // Link para a página inicial (não é "Frontoffice")
             if (frontLink) frontLink.style.display = currentUser.isAdmin ? 'inline-block' : 'none';
         if (backLink) backLink.style.display = currentUser.isAdmin ? 'inline-block' : 'none';
         if (perfilLink) perfilLink.style.display = 'inline-block';
@@ -470,14 +534,23 @@ async function loadContent(page = 1) {
         
         if (currentSearch) {
             const tmdbTipo = mapTipoToTMDB(currentTipo);
-            url = `${API_BASE}/conteudos/tmdb/search?query=${encodeURIComponent(currentSearch)}&tipo=${tmdbTipo}&page=${page}`;
-            isTMDB = true;
             
-            const response = await fetch(url);
-            const data = await response.json();
-            conteudos = data.results || [];
-            totalResults = data.total_results || 0;
-            totalPages = Math.ceil(totalResults / 20); // TMDB retorna 20 por página
+            // Buscar na base de dados local
+            const localResponse = await fetch(`${API_BASE}/conteudos?search=${encodeURIComponent(currentSearch)}`);
+            const localData = await localResponse.json();
+            const localConteudos = Array.isArray(localData) ? localData : [];
+            
+            // Buscar no TMDB
+            const tmdbUrl = `${API_BASE}/conteudos/tmdb/search?query=${encodeURIComponent(currentSearch)}&tipo=${tmdbTipo}&page=${page}`;
+            const tmdbResponse = await fetch(tmdbUrl);
+            const tmdbData = await tmdbResponse.json();
+            const tmdbConteudos = tmdbData.results || [];
+            
+            // Combinar resultados: local primeiro, depois TMDB
+            conteudos = [...localConteudos, ...tmdbConteudos];
+            totalResults = conteudos.length;
+            totalPages = Math.ceil(totalResults / 20);
+            isTMDB = false; // Mistura de local e TMDB
         } else {
             // Para busca sem pesquisa (populares)
             if (currentTipo === '') {
@@ -564,7 +637,6 @@ function updatePaginationControls() {
     }
 }
 
-// Tornar função global para ser acessível pelo HTML
 window.changePage = changePage;
 
 function displayContent(conteudos, isTMDB = false) {
@@ -580,8 +652,11 @@ function displayContent(conteudos, isTMDB = false) {
         const card = document.createElement('div');
         card.className = 'content-card';
         
-        if (isTMDB) {
-            // Dados da TMDB - redirecionar para página de detalhes
+        // Detectar se é TMDB (tem title/name) ou local (tem titulo)
+        const isLocalContent = conteudo.titulo !== undefined;
+        
+        if (!isLocalContent && (conteudo.title || conteudo.name)) {
+            // Conteúdo TMDB
             const tmdbId = conteudo.id;
             const mediaType = conteudo.title ? 'movie' : 'tv';
             card.onclick = () => window.location.href = `detalhes.html?tmdb_id=${tmdbId}&type=${mediaType}`;
@@ -607,7 +682,7 @@ function displayContent(conteudos, isTMDB = false) {
                 </div>
             `;
         } else {
-            // Dados da base de dados local - redirecionar para página de detalhes
+            // Conteúdo local
             card.onclick = () => window.location.href = `detalhes.html?id=${conteudo.id}`;
             card.style.cursor = 'pointer';
             const userRating = conteudo.rating != null ? Number(conteudo.rating).toFixed(1) : 'N/A';
@@ -628,7 +703,6 @@ function displayContent(conteudos, isTMDB = false) {
                 </div>
             `;
 
-            // Coração de favoritos (apenas para conteúdos locais e utilizador autenticado)
             if (currentUser && !currentUser.pending) {
                 card.classList.add('has-fav');
 
@@ -687,7 +761,6 @@ async function showContentDetails(id) {
     }
 }
 
-// Fechar modal ao clicar fora
 window.onclick = function(event) {
     const authModal = document.getElementById('auth-modal');
     const perfilModal = document.getElementById('perfil-modal');

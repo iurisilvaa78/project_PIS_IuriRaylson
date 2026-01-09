@@ -1415,6 +1415,103 @@ body.dark-mode .detalhes-sinopse p {
     color: #e5e5e5;
 }
 
+/* Elenco - Grid */
+.detalhes-cast {
+    margin-top: 30px;
+    padding: 20px 0;
+}
+
+.detalhes-cast h3 {
+    color: #e50914;
+    margin-bottom: 20px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.cast-carousel-container {
+    position: relative;
+}
+
+.cast-carousel {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px;
+    padding: 10px 0;
+    width: 100%;
+}
+
+.cast-carousel-btn {
+    display: none;
+}
+
+.cast-member {
+    text-align: center;
+    transition: transform 0.3s;
+    cursor: pointer;
+}
+
+.cast-member:hover {
+    transform: translateY(-5px);
+}
+
+.cast-photo {
+    width: 100%;
+    max-width: 150px;
+    height: 225px;
+    object-fit: cover;
+    object-position: center top;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    transition: box-shadow 0.3s;
+    display: block;
+    margin: 0 auto;
+}
+
+.cast-member:hover .cast-photo {
+    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.3);
+}
+
+body.dark-mode .cast-photo {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.cast-info {
+    margin-top: 10px;
+}
+
+.cast-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333333;
+    margin-bottom: 4px;
+}
+
+body.dark-mode .cast-name {
+    color: #e5e5e5;
+}
+
+.cast-character {
+    font-size: 13px;
+    color: #666666;
+    font-style: italic;
+}
+
+body.dark-mode .cast-character {
+    color: #999999;
+}
+
+@media (max-width: 768px) {
+    .cast-carousel {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 15px;
+    }
+    
+    .cast-photo {
+        max-width: 130px;
+        height: 195px;
+    }
+}
+
 .btn-trailer {
     display: inline-block;
     background: #e50914;
@@ -2206,5 +2303,59 @@ body.dark-mode .no-reviews {
     .add-review-form {
         padding: 20px;
     }
+}
+
+/* Lista Cards - Design melhorado */
+.lista-card {
+    position: relative;
+    transition: transform 0.3s, box-shadow 0.3s !important;
+}
+
+.lista-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(229, 9, 20, 0.25) !important;
+}
+
+body.dark-mode .lista-card:hover {
+    box-shadow: 0 8px 20px rgba(229, 9, 20, 0.4) !important;
+}
+
+.lista-card button:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+}
+
+.btn-add-lista:hover {
+    background: #b9090b !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.5) !important;
+}
+
+/* Botão adicionar a lista com indicador */
+.btn-add-to-list {
+    position: relative;
+    transition: background 0.3s, transform 0.2s;
+}
+
+.btn-add-to-list.in-lists .list-icon {
+    fill: #28a745;
+    stroke: #28a745;
+}
+
+.btn-add-to-list .list-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #28a745;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 

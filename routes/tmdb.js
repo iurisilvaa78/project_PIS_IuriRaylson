@@ -1,8 +1,31 @@
+/*
+ * Rotas de Integração com TMDB API
+ * 
+ * Endpoints para obter dados diretamente do TMDB:
+ * - Detalhes de filmes/séries
+ * - Listas de géneros
+ * - Informações de elenco (créditos)
+ * - Vídeos/trailers
+ * 
+ * Rotas:
+ * - GET /api/tmdb/movie/:id - Detalhes de filme
+ * - GET /api/tmdb/tv/:id - Detalhes de série
+ * - GET /api/tmdb/genres/movie - Géneros de filmes
+ * - GET /api/tmdb/genres/tv - Géneros de séries
+ * - GET /api/tmdb/movie/:id/credits - Elenco de filme
+ * - GET /api/tmdb/tv/:id/credits - Elenco de série
+ */
+
 const express = require('express');
 const router = express.Router();
 const tmdbClient = require('../config/tmdb');
 
-// Buscar detalhes de filme
+/**
+ * GET /api/tmdb/movie/:id
+ * Obtém detalhes de um filme do TMDB incluindo trailer
+ * Procura trailer em português ou inglês
+ * Público
+ */
 router.get('/movie/:id', async (req, res) => {
     try {
         const movieId = req.params.id;
@@ -30,7 +53,12 @@ router.get('/movie/:id', async (req, res) => {
     }
 });
 
-// Buscar detalhes de série
+/**
+ * GET /api/tmdb/tv/:id
+ * Obtém detalhes de uma série do TMDB incluindo trailer
+ * Procura trailer em português ou inglês
+ * Público
+ */
 router.get('/tv/:id', async (req, res) => {
     try {
         const tvId = req.params.id;
@@ -58,7 +86,12 @@ router.get('/tv/:id', async (req, res) => {
     }
 });
 
-// Buscar géneros de filmes
+/**
+ * GET /api/tmdb/genres/movie
+ * Lista todos os géneros de filmes disponíveis no TMDB
+ * Retorna em português
+ * Público
+ */
 router.get('/genres/movie', async (req, res) => {
     try {
         const response = await tmdbClient.get('/genre/movie/list', {
@@ -71,7 +104,12 @@ router.get('/genres/movie', async (req, res) => {
     }
 });
 
-// Buscar géneros de séries
+/**
+ * GET /api/tmdb/genres/tv
+ * Lista todos os géneros de séries disponíveis no TMDB
+ * Retorna em português
+ * Público
+ */
 router.get('/genres/tv', async (req, res) => {
     try {
         const response = await tmdbClient.get('/genre/tv/list', {
@@ -84,7 +122,11 @@ router.get('/genres/tv', async (req, res) => {
     }
 });
 
-// Buscar créditos de filme
+/**
+ * GET /api/tmdb/movie/:id/credits
+ * Obtém elenco e equipa de um filme
+ * Público
+ */
 router.get('/movie/:id/credits', async (req, res) => {
     try {
         const movieId = req.params.id;
@@ -96,7 +138,11 @@ router.get('/movie/:id/credits', async (req, res) => {
     }
 });
 
-// Buscar créditos de série
+/**
+ * GET /api/tmdb/tv/:id/credits
+ * Obtém elenco e equipa de uma série
+ * Público
+ */
 router.get('/tv/:id/credits', async (req, res) => {
     try {
         const tvId = req.params.id;

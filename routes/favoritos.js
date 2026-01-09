@@ -1,9 +1,26 @@
+/*
+ * Rotas de Favoritos
+ * 
+ * Gestão de conteúdos favoritos dos utilizadores
+ * 
+ * Rotas:
+ * - POST /api/favoritos - Adicionar aos favoritos
+ * - DELETE /api/favoritos/:conteudo_id - Remover dos favoritos
+ * - GET /api/favoritos - Listar favoritos do utilizador
+ * - GET /api/favoritos/:conteudo_id - Verificar se é favorito
+ */
+
 const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { verifyJWT } = require('../middleware/auth');
 
-// Adicionar aos favoritos
+/**
+ * POST /api/favoritos
+ * Adiciona conteúdo aos favoritos do utilizador
+ * Previne duplicações
+ * Requer: Autenticação
+ */
 router.post('/', verifyJWT, async (req, res) => {
     try {
         const { conteudo_id } = req.body;
@@ -13,7 +30,6 @@ router.post('/', verifyJWT, async (req, res) => {
             return res.status(400).json({ message: 'Conteúdo ID é obrigatório.' });
         }
         
-        // Verificar se já está nos favoritos
         const [existing] = await db.execute(
             'SELECT id FROM favoritos WHERE utilizador_id = ? AND conteudo_id = ?',
             [utilizador_id, conteudo_id]
@@ -35,7 +51,11 @@ router.post('/', verifyJWT, async (req, res) => {
     }
 });
 
-// Remover dos favoritos
+/**
+ * DELETE /api/favoritos/:conteudo_id
+ * Remove conteúdo dos favoritos
+ * Requer: Autenticação
+ */
 router.delete('/:conteudo_id', verifyJWT, async (req, res) => {
     try {
         const { conteudo_id } = req.params;
@@ -53,7 +73,12 @@ router.delete('/:conteudo_id', verifyJWT, async (req, res) => {
     }
 });
 
-// Listar favoritos do utilizador
+/**
+ * GET /api/favoritos
+ * Lista todos os favoritos do utilizador com dados dos conteúdos
+ * Ordenado por data de adição (mais recentes primeiro)
+ * Requer: Autenticação
+ */
 router.get('/', verifyJWT, async (req, res) => {
     try {
         const utilizador_id = req.userId;
@@ -74,7 +99,11 @@ router.get('/', verifyJWT, async (req, res) => {
     }
 });
 
-// Verificar se está nos favoritos
+/**
+ * GET /api/favoritos/:conteudo_id
+ * Verifica se um conteúdo está nos favoritos do utilizador
+ * Requer: Autenticação
+ */
 router.get('/:conteudo_id', verifyJWT, async (req, res) => {
     try {
         const { conteudo_id } = req.params;

@@ -1,10 +1,29 @@
+/*
+ * Rotas de Administração
+ * 
+ * Endpoints para gestão administrativa de utilizadores e reviews
+ * Requer autenticação e privilégios de administrador
+ * 
+ * Rotas:
+ * - GET /api/admin/users - Listar utilizadores
+ * - PUT /api/admin/users/:id - Atualizar utilizador
+ * - DELETE /api/admin/users/:id - Eliminar utilizador
+ * - GET /api/admin/reviews - Listar todas as reviews
+ * - PUT /api/admin/reviews/:id - Atualizar review
+ */
+
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../config/database');
 const { verifyJWT, verifyAdmin } = require('../middleware/auth');
 
-// Helpers
+/**
+ * Atualiza o rating médio de um conteúdo baseado nas reviews
+ * Calcula média das avaliações e atualiza tabela conteudos
+ * 
+ * @param {number} conteudo_id - ID do conteúdo a atualizar
+ */
 async function updateConteudoRating(conteudo_id) {
     const [result] = await db.execute(
         'SELECT AVG(avaliacao) as rating_medio FROM reviews WHERE conteudo_id = ?',
@@ -19,9 +38,11 @@ async function updateConteudoRating(conteudo_id) {
     );
 }
 
-// =========================
-// Utilizadores (Admin)
-// =========================
+/**
+ * GET /api/admin/users
+ * Lista todos os utilizadores do sistema
+ * Requer: Admin
+ */
 router.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const [users] = await db.execute(
@@ -37,6 +58,12 @@ router.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
+/**
+ * PUT /api/admin/users/:id
+ * Atualiza dados de um utilizador
+ * Permite alterar username, email, nome, status de admin e password
+ * Requer: Admin
+ */
 router.put('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const { id } = req.params;
@@ -46,7 +73,6 @@ router.put('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(400).json({ message: 'Username e email são obrigatórios.' });
         }
 
-        // Verificar se existe
         const [existing] = await db.execute(
             'SELECT id FROM utilizadores WHERE id = ?',
             [id]
@@ -55,7 +81,6 @@ router.put('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(404).json({ message: 'Utilizador não encontrado.' });
         }
 
-        // Unicidade username/email
         const [conflict] = await db.execute(
             'SELECT id FROM utilizadores WHERE (username = ? OR email = ?) AND id != ?',
             [username, email, id]
@@ -90,17 +115,19 @@ router.put('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
-// Eliminar utilizador
+/**
+ * DELETE /api/admin/users/:id
+ * Elimina um utilizador do sistema
+ * Impede que admin elimine a própria conta
+ * Requer: Admin
+ */
 router.delete('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        
-        // Não permitir eliminar o próprio utilizador
         if (parseInt(id) === req.userId) {
             return res.status(400).json({ message: 'Não pode eliminar a sua própria conta.' });
         }
         
-        // Verificar se existe
         const [existing] = await db.execute(
             'SELECT id FROM utilizadores WHERE id = ?',
             [id]
@@ -110,7 +137,6 @@ router.delete('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(404).json({ message: 'Utilizador não encontrado.' });
         }
         
-        // Eliminar utilizador (CASCADE eliminará reviews, favoritos, listas, etc.)
         await db.execute('DELETE FROM utilizadores WHERE id = ?', [id]);
         
         res.json({ message: 'Utilizador eliminado com sucesso.' });
@@ -120,9 +146,11 @@ router.delete('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
-// =========================
-// Reviews (Admin)
-// =========================
+/**
+ * GET /api/admin/reviews
+ * Lista todas as reviews com informações de utilizador e conteúdo
+ * Requer: Admin
+ */
 router.get('/reviews', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const [reviews] = await db.execute(
@@ -142,6 +170,12 @@ router.get('/reviews', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
+/**
+ * PUT /api/admin/reviews/:id
+ * Atualiza uma review existente
+ * Valida avaliação entre 1-10 e recalcula rating do conteúdo
+ * Requer: Admin
+ */
 router.put('/reviews/:id', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const { id } = req.params;

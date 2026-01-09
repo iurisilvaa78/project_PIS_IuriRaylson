@@ -1,8 +1,23 @@
-const API_BASE = '/api';
-let currentUser = null;
-let authToken = null;
-let conteudoId = null;
+/*
+ * Página de Detalhes de Conteúdo
+ * 
+ * Exibe informações completas sobre um filme ou série:
+ * - Detalhes (sinopse, elenco, trailer, etc.)
+ * - Reviews de utilizadores
+ * - Sistema de avaliação interativo (estrelas)
+ * - Favoritos
+ * - Suporte para conteúdos locais e do TMDB
+ */
 
+// Constantes e variáveis globais
+const API_BASE = '/api';
+let currentUser = null; // Utilizador autenticado
+let authToken = null; // Token JWT
+let conteudoId = null; // ID do conteúdo sendo visualizado
+
+/**
+ * Associa eventos aos botões de autenticação
+ */
 function bindAuthButtons() {
     const loginBtn = document.getElementById('login-btn');
     const registerBtn = document.getElementById('register-btn');
@@ -30,8 +45,10 @@ function bindAuthButtons() {
     }
 }
 
+/**
+ * Volta para a página anterior ou index
+ */
 function navigateBack() {
-    // Se o utilizador abriu a página diretamente (sem histórico), history.back() não faz nada.
     if (window.history.length > 1) {
         window.history.back();
         return;
@@ -39,6 +56,11 @@ function navigateBack() {
     window.location.href = 'index.html';
 }
 
+/**
+ * Associa evento de voltar aos botões
+ * 
+ * @param {HTMLElement} root - Elemento raiz para procurar botões
+ */
 function bindBackButtons(root = document) {
     root.querySelectorAll('.btn-voltar').forEach((btn) => {
         btn.addEventListener('click', (e) => {
@@ -48,6 +70,13 @@ function bindBackButtons(root = document) {
     });
 }
 
+/**
+ * Associa evento ao botão de favorito
+ * Previne duplicação de listeners
+ * 
+ * @param {number} conteudoId - ID do conteúdo
+ * @param {HTMLElement} root - Elemento raiz
+ */
 function bindFavoriteButton(conteudoId, root = document) {
     const btn = root.querySelector('#fav-btn');
     if (!btn) return;
@@ -60,7 +89,6 @@ function bindFavoriteButton(conteudoId, root = document) {
     });
 }
 
-// Dark Mode
 function toggleDarkMode() {
     document.body.classList.toggle('dark-mode');
     const isDarkMode = document.body.classList.contains('dark-mode');
@@ -76,7 +104,6 @@ function loadDarkModePreference() {
     }
 }
 
-// Success Message Pop-up
 function showSuccessMessage(message) {
     const popup = document.createElement('div');
     popup.className = 'success-popup';
@@ -105,13 +132,16 @@ window.addEventListener('pageshow', (event) => {
     }
 });
 
+/**
+ * Inicialização da página de detalhes
+ * Identifica conteúdo (ID local ou TMDB) e carrega dados apropriados
+ */
 window.addEventListener('DOMContentLoaded', () => {
     loadDarkModePreference();
     bindAuthButtons();
     bindBackButtons();
     authToken = localStorage.getItem('authToken');
     
-    // Obter ID do conteúdo da URL
     const urlParams = new URLSearchParams(window.location.search);
     conteudoId = urlParams.get('id');
     const tmdbId = urlParams.get('tmdb_id');
@@ -133,20 +163,17 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         loadConteudoDetalhes();
         loadReviews();
-        // Garantir que reviews section está visível
         const reviewsSection = document.getElementById('reviews-section');
         if (reviewsSection) {
             reviewsSection.style.display = 'block';
         }
     }
     
-    // Form submit
     document.getElementById('review-form').addEventListener('submit', submitReview);
     
-    // Inicializar sistema de estrelas
+    // Inicializar sistema de avaliação por estrelas
     initStarRating();
     
-    // Contador de caracteres
     const comentarioInput = document.getElementById('comentario');
     const charCount = document.getElementById('char-count');
     if (comentarioInput && charCount) {
@@ -156,6 +183,10 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+/**
+ * Inicializa sistema interativo de avaliação por estrelas
+ * Permite selecionar avaliação de 1 a 10 com feedback visual
+ */
 function initStarRating() {
     const starsContainer = document.getElementById('stars-container');
     const avaliacaoInput = document.getElementById('avaliacao');
@@ -166,7 +197,6 @@ function initStarRating() {
     const stars = starsContainer.querySelectorAll('.star');
     let selectedRating = 0;
     
-    // Mensagens para cada avaliação
     const ratingMessages = {
         1: '1/10 - Horrível',
         2: '2/10 - Muito mau',
@@ -181,7 +211,6 @@ function initStarRating() {
     };
     
     stars.forEach((star, index) => {
-        // Click para selecionar
         star.addEventListener('click', () => {
             selectedRating = parseInt(star.dataset.value);
             avaliacaoInput.value = selectedRating;
@@ -189,7 +218,6 @@ function initStarRating() {
             ratingDisplay.textContent = ratingMessages[selectedRating];
         });
         
-        // Hover para preview
         star.addEventListener('mouseenter', () => {
             const hoverValue = parseInt(star.dataset.value);
             stars.forEach((s, i) => {
@@ -205,7 +233,6 @@ function initStarRating() {
         });
     });
     
-    // Remover hover ao sair
     starsContainer.addEventListener('mouseleave', () => {
         stars.forEach(s => s.classList.remove('hover'));
         if (selectedRating) {
@@ -242,7 +269,6 @@ async function verifyAuth() {
             const data = await response.json();
             currentUser = data;
             updateUI();
-            // Atualizar formulário de review se estiver em página de conteúdo local
             if (conteudoId && !document.querySelector('.tmdb-notice')) {
                 const reviewsSection = document.getElementById('reviews-section');
                 if (reviewsSection) {
@@ -275,7 +301,6 @@ function updateUI() {
     const backofficeLink = document.getElementById('backoffice-link');
     const addReviewForm = document.getElementById('add-review-form');
 
-    // Nesta página (detalhes) deve aparecer o link "Início".
     if (frontofficeLink) frontofficeLink.style.display = 'inline';
     
     if (currentUser && !currentUser.pending) {
@@ -290,7 +315,6 @@ function updateUI() {
             backofficeLink.style.display = 'inline';
         }
         
-        // Mostrar formulário de review se estiver logado
         if (addReviewForm) {
             addReviewForm.style.display = 'block';
         }
@@ -324,18 +348,23 @@ async function loadConteudoDetalhes() {
     
     try {
         console.log('Carregando detalhes do conteúdo ID:', conteudoId);
-        const response = await fetch(`${API_BASE}/conteudos/${conteudoId}`);
+        const [conteudoResponse, elencoResponse] = await Promise.all([
+            fetch(`${API_BASE}/conteudos/${conteudoId}`),
+            fetch(`${API_BASE}/conteudos/${conteudoId}/elenco`)
+        ]);
         
-        console.log('Response status:', response.status);
+        console.log('Response status:', conteudoResponse.status);
         
-        if (!response.ok) {
-            const errorData = await response.text();
+        if (!conteudoResponse.ok) {
+            const errorData = await conteudoResponse.text();
             console.error('Erro na resposta:', errorData);
             throw new Error('Conteúdo não encontrado');
         }
         
-        const conteudo = await response.json();
+        const conteudo = await conteudoResponse.json();
+        const elenco = elencoResponse.ok ? await elencoResponse.json() : [];
         console.log('Conteúdo carregado:', conteudo);
+        console.log('Elenco carregado:', elenco);
         
         // Se tmdb_rating é NULL mas tem tmdb_id, atualizar automaticamente
         if ((conteudo.tmdb_rating == null || conteudo.tmdb_rating === 'N/A') && conteudo.tmdb_id) {
@@ -359,6 +388,37 @@ async function loadConteudoDetalhes() {
         const tmdbRating = conteudo.tmdb_rating != null ? Number(conteudo.tmdb_rating).toFixed(1) : 'N/A';
         const posterUrl = conteudo.poster_url || 'https://via.placeholder.com/300x450?text=Sem+Poster';
         
+        let castHTML = '';
+        if (elenco.length > 0) {
+            castHTML = `
+                <div class="detalhes-cast">
+                    <h3>Elenco Principal</h3>
+                    <div class="cast-carousel-container">
+                        <button class="cast-carousel-btn cast-carousel-prev" onclick="scrollCastCarousel(-1)">
+                            <span>‹</span>
+                        </button>
+                        <div class="cast-carousel">
+                            ${elenco.map(actor => {
+                                const photoUrl = actor.foto_url || 'https://via.placeholder.com/185x278?text=Sem+Foto';
+                                return `
+                                    <div class="cast-member">
+                                        <img src="${photoUrl}" alt="${actor.nome}" class="cast-photo">
+                                        <div class="cast-info">
+                                            <div class="cast-name">${actor.nome}</div>
+                                            <div class="cast-character">${actor.personagem || 'N/A'}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <button class="cast-carousel-btn cast-carousel-next" onclick="scrollCastCarousel(1)">
+                            <span>›</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
         container.innerHTML = `
             <button type="button" class="btn-voltar">◄</button>
             <div class="detalhes-content">
@@ -371,10 +431,11 @@ async function loadConteudoDetalhes() {
                         ${currentUser ? `
                             <div style="display: flex; gap: 10px; align-items: center;">
                                 <button id="fav-btn" type="button" class="fav-heart fav-heart-inline" aria-label="Adicionar aos favoritos" title="Adicionar aos favoritos">♡</button>
-                                <button id="add-to-list-btn" type="button" class="btn-add-to-list" aria-label="Adicionar à lista" title="Adicionar à Minha Lista" data-added="false">
+                                <button id="add-to-list-btn" type="button" class="btn-add-to-list" aria-label="Adicionar a uma lista" title="Adicionar a uma Lista" onclick="adicionarAMinhaLista(${conteudo.id})" style="position: relative;">
                                     <svg class="list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                                     </svg>
+                                    <span class="list-count"></span>
                                 </button>
                             </div>
                         ` : ''}
@@ -407,26 +468,22 @@ async function loadConteudoDetalhes() {
                     </div>
                 </div>
             </div>
+            
+            ${castHTML}
         `;
 
-        // O conteúdo é renderizado dinamicamente, por isso (re)fazemos o bind do botão voltar.
         bindBackButtons(container);
 
-        // E também do botão de favoritos (não depende de onclick inline).
         if (currentUser && !currentUser.pending) {
             bindFavoriteButton(conteudo.id, container);
-            bindAddToListButton(conteudo.id, container);
-            // Sincronizar estados
             await syncFavorito(conteudo.id);
-            await syncLista(conteudo.id);
         }
         
         document.getElementById('reviews-section').style.display = 'block';
         
-        // Sincronizar favoritos e listas se o usuário estiver logado
         if (currentUser) {
             await syncFavorito(conteudo.id);
-            await syncLista(conteudo.id);
+            await syncListaStatus(conteudo.id);
         }
         
     } catch (error) {
@@ -448,10 +505,8 @@ async function loadReviews() {
         
         const reviews = await response.json();
         
-        // Verificar se o utilizador atual já tem review
         let userHasReview = false;
         if (currentUser) {
-            // Verificar usando tanto 'id' quanto 'userId' para compatibilidade
             const userId = currentUser.id || currentUser.userId;
             userHasReview = reviews.some(review => {
                 return review.utilizador_id === userId || review.utilizador_id === currentUser.id || review.utilizador_id === currentUser.userId;
@@ -572,9 +627,7 @@ async function submitReview(event) {
             document.querySelectorAll('.star').forEach(star => star.classList.remove('active'));
             document.getElementById('char-count').textContent = '0';
             
-            // Pequeno delay para garantir que a review foi salva no banco
             setTimeout(async () => {
-                // Recarregar reviews (irá esconder formulário)
                 await loadReviews();
                 if (conteudoId) {
                     await loadConteudoDetalhes(); // Recarregar para atualizar rating médio
@@ -602,9 +655,7 @@ async function deleteReview(reviewId) {
         
         if (response.ok) {
             showSuccessMessage('Review eliminada com sucesso!');
-            // Recarregar reviews (irá mostrar formulário novamente)
             await loadReviews();
-            // Recarregar detalhes para atualizar rating
             if (conteudoId) {
                 await loadConteudoDetalhes();
             }
@@ -627,9 +678,8 @@ async function darLikeReview(reviewId) {
 
     const btn = document.getElementById(`like-btn-${reviewId}`);
     
-    // Verificar se é a própria review
     if (btn && btn.classList.contains('own-review')) {
-        return; // Não fazer nada se for a própria review
+        return;
     }
 
     try {
@@ -646,7 +696,6 @@ async function darLikeReview(reviewId) {
                 const thumbsIcon = btn.querySelector('.thumbs-icon');
                 
                 if (data.voted) {
-                    // Adicionar like
                     btn.classList.add('liked');
                     if (thumbsIcon) {
                         thumbsIcon.setAttribute('fill', 'currentColor');
@@ -659,7 +708,6 @@ async function darLikeReview(reviewId) {
                         countSpan.style.display = 'inline';
                     }
                 } else {
-                    // Remover like
                     btn.classList.remove('liked');
                     if (thumbsIcon) {
                         thumbsIcon.setAttribute('fill', 'none');
@@ -688,7 +736,6 @@ async function darLikeReview(reviewId) {
     }
 }
 
-// Sincronizar estado dos likes das reviews
 async function syncReviewLikes(reviews) {
     if (!currentUser) return;
     
@@ -770,19 +817,16 @@ async function toggleFavorito(conteudoId) {
     }
 }
 
-// Compatibilidade (se existir algum onclick antigo)
 async function adicionarFavorito(conteudoId) {
     return toggleFavorito(conteudoId);
 }
 
-// Carregar detalhes de filmes/séries do TMDB
 async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
     const container = document.getElementById('detalhes-container');
     
     try {
         console.log('loadTMDBDetails chamado com tmdbId:', tmdbId, 'mediaType:', mediaType);
         
-        // Primeiro verificar se já existe na base de dados
         const checkResponse = await fetch(`${API_BASE}/conteudos/check-tmdb/${tmdbId}`);
         const checkData = await checkResponse.json();
         
@@ -790,7 +834,6 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
         
         if (checkData.exists) {
             console.log('Filme já existe na BD com ID:', checkData.id);
-            // Já existe - atualizar conteudoId global e carregar da BD local
             conteudoId = checkData.id;
             console.log('conteudoId atualizado para:', conteudoId);
             await loadConteudoDetalhes();
@@ -803,7 +846,6 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
             return;
         }
         
-        // Não existe - carregar detalhes do TMDB
         const [detailsResponse, creditsResponse] = await Promise.all([
             fetch(`/api/tmdb/${mediaType}/${tmdbId}`),
             fetch(`/api/tmdb/${mediaType}/${tmdbId}/credits`)
@@ -825,6 +867,9 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
             diretor = conteudo.created_by.map(c => c.name).join(', ');
         }
         
+        // Extrair elenco principal
+        const cast = credits?.cast ? credits.cast : [];
+        
         const titulo = conteudo.title || conteudo.name;
         const posterUrl = conteudo.poster_path ? `https://image.tmdb.org/t/p/w500${conteudo.poster_path}` : 'https://via.placeholder.com/300x450?text=Sem+Poster';
         const ano = conteudo.release_date ? new Date(conteudo.release_date).getFullYear() : (conteudo.first_air_date ? new Date(conteudo.first_air_date).getFullYear() : 'N/A');
@@ -843,6 +888,39 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
         const noticeMessage = currentUser && currentUser.isAdmin 
             ? 'ℹ️ Este conteúdo vem da base de dados TMDB. Use o botão acima para importar e permitir reviews.'
             : 'ℹ️ Este conteúdo vem da base de dados TMDB. Peça a um administrador para importar este conteúdo.';
+        
+        let castHTML = '';
+        if (cast.length > 0) {
+            castHTML = `
+                <div class="detalhes-cast">
+                    <h3>Elenco Principal</h3>
+                    <div class="cast-carousel-container">
+                        <button class="cast-carousel-btn cast-carousel-prev" onclick="scrollCastCarousel(-1)">
+                            <span>‹</span>
+                        </button>
+                        <div class="cast-carousel">
+                            ${cast.map(actor => {
+                                const photoUrl = actor.profile_path 
+                                    ? `https://image.tmdb.org/t/p/w185${actor.profile_path}` 
+                                    : 'https://via.placeholder.com/185x278?text=Sem+Foto';
+                                return `
+                                    <div class="cast-member">
+                                        <img src="${photoUrl}" alt="${actor.name}" class="cast-photo">
+                                        <div class="cast-info">
+                                            <div class="cast-name">${actor.name}</div>
+                                            <div class="cast-character">${actor.character || 'N/A'}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <button class="cast-carousel-btn cast-carousel-next" onclick="scrollCastCarousel(1)">
+                            <span>›</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
         
         container.innerHTML = `
             <button type="button" class="btn-voltar">◄</button>
@@ -876,11 +954,12 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
                     </div>
                 </div>
             </div>
+            
+            ${castHTML}
         `;
 
         bindBackButtons(container);
         
-        // Esconder seção de reviews para conteúdos TMDB
         const reviewsSection = document.getElementById('reviews-section');
         if (reviewsSection) {
             reviewsSection.style.display = 'none';
@@ -905,7 +984,6 @@ async function loadTMDBDetails(tmdbId, mediaType = 'movie') {
     }
 }
 
-// Modal Functions
 function showLogin() {
     const modal = document.getElementById('auth-modal');
     const modalBody = document.getElementById('modal-body');
@@ -1036,7 +1114,6 @@ async function handleRegister(e) {
     }
 }
 
-// Close modal when clicking outside
 window.onclick = function(event) {
     const modal = document.getElementById('auth-modal');
     if (event.target === modal) {
@@ -1044,7 +1121,6 @@ window.onclick = function(event) {
     }
 }
 
-// Importar filme/série TMDB para base de dados local
 async function importarTMDB(tmdbId, mediaType) {
     if (!currentUser || !currentUser.isAdmin) {
         alert('Apenas administradores podem importar conteúdos!');
@@ -1071,7 +1147,6 @@ async function importarTMDB(tmdbId, mediaType) {
                 showSuccessMessage('Conteúdo importado com sucesso!');
             }
             
-            // Atualizar conteudoId global e carregar diretamente
             conteudoId = data.id;
             await loadConteudoDetalhes();
             await loadReviews();
@@ -1090,59 +1165,227 @@ async function importarTMDB(tmdbId, mediaType) {
     }
 }
 
-// Bind do botão de adicionar à lista
-function bindAddToListButton(conteudoId, root = document) {
-    const btn = root.querySelector('#add-to-list-btn');
-    if (!btn) return;
-    if (btn.dataset.bound === '1') return;
-
-    btn.dataset.bound = '1';
-    btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        adicionarAMinhaLista(conteudoId);
-    });
-}
-
-// Adicionar direto à lista do utilizador
 async function adicionarAMinhaLista(conteudoId) {
     if (!currentUser) {
         showLogin();
         return;
     }
 
-    const btn = document.getElementById('add-to-list-btn');
-    const isAdded = btn && btn.dataset.added === 'true';
+    try {
+        const response = await fetch(`${API_BASE}/listas`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            throw new Error('Erro ao carregar listas');
+        }
+        
+        const listas = await response.json();
+        
+        if (listas.length === 0) {
+            showCreateListModalFromDetalhes();
+            return;
+        }
+        
+        const listasComConteudo = await Promise.all(
+            listas.map(async (lista) => {
+                const detailsResponse = await fetch(`${API_BASE}/listas/${lista.id}`, {
+                    headers: getAuthHeaders()
+                });
+                const details = await detailsResponse.json();
+                const conteudoIds = details.conteudos?.map(c => c.id) || [];
+                return {
+                    ...lista,
+                    hasContent: conteudoIds.includes(parseInt(conteudoId))
+                };
+            })
+        );
+        
+        showListaSelectionModal(conteudoId, listasComConteudo);
+    } catch (error) {
+        console.error('Erro ao carregar listas:', error);
+        alert('Erro ao carregar listas');
+    }
+}
 
+function showListaSelectionModal(conteudoId, listas) {
+    const modal = document.createElement('div');
+    modal.id = 'lista-selection-modal';
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    
+    const isDark = document.body.classList.contains('dark-mode');
+    const bgColor = isDark ? 'rgba(31, 31, 31, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+    const textColor = isDark ? '#e5e5e5' : '#333333';
+    const textSecondary = isDark ? '#b3b3b3' : '#757575';
+    const itemBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="background: ${bgColor}; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; border: 2px solid #e50914; color: ${textColor}; position: relative;">
+            <span class="close" onclick="closeListaSelectionModal()" style="color: #e50914;">&times;</span>
+            <h2 style="margin: 0 0 20px 0; color: #e50914;">Adicionar a uma lista</h2>
+            ${listas.length === 0 ? `
+                <p style="text-align: center; padding: 20px; color: ${textSecondary};">Você ainda não tem listas. Crie uma agora!</p>
+            ` : `
+            <div id="listas-container" style="display: flex; flex-direction: column; gap: 10px;">
+            </div>
+            `}
+            <div style="margin-top: 20px; text-align: center;">
+                <a href="#" onclick="showCreateListModalFromDetalhes(); return false;" style="color: #e50914; text-decoration: none; font-size: 14px; font-weight: 600;">
+                    + Criar nova lista
+                </a>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    if (listas.length > 0) {
+        const container = document.getElementById('listas-container');
+        listas.forEach(lista => {
+            const listaDiv = document.createElement('div');
+            listaDiv.style.cssText = `display: flex; flex-direction: column; padding: 15px; background: ${itemBg}; border-radius: 8px; border: 2px solid ${lista.hasContent ? '#28a745' : 'transparent'};`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.style.cssText = 'margin-bottom: 12px;';
+            
+            const h3 = document.createElement('h3');
+            h3.style.cssText = `margin: 0 0 5px 0; font-size: 16px; color: ${textColor};`;
+            h3.textContent = lista.nome || '';
+            
+            const p = document.createElement('p');
+            p.style.cssText = `margin: 0; font-size: 12px; color: ${textSecondary};`;
+            p.textContent = `${lista.descricao || 'Sem descrição'} • ${lista.total_itens || 0} itens`;
+            
+            const button = document.createElement('button');
+            button.style.cssText = `padding: 10px 16px; background: ${lista.hasContent ? '#28a745' : '#e50914'}; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.3s; width: 100%;`;
+            button.textContent = lista.hasContent ? '✓ Adicionado' : '+ Adicionar';
+            button.onclick = () => toggleConteudoInLista(lista.id, conteudoId, lista.hasContent);
+            
+            contentDiv.appendChild(h3);
+            contentDiv.appendChild(p);
+            listaDiv.appendChild(contentDiv);
+            listaDiv.appendChild(button);
+            container.appendChild(listaDiv);
+        });
+    }
+}
+
+function closeListaSelectionModal() {
+    const modal = document.getElementById('lista-selection-modal');
+    if (modal) modal.remove();
+}
+
+function showCreateListModalFromDetalhes() {
+    closeListaSelectionModal();
+    
+    const modal = document.createElement('div');
+    modal.id = 'create-list-modal-detalhes';
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    
+    const isDark = document.body.classList.contains('dark-mode');
+    const bgColor = isDark ? 'rgba(31, 31, 31, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+    const textColor = isDark ? '#e5e5e5' : '#333333';
+    const inputBg = isDark ? '#2a2a2a' : '#ffffff';
+    const inputBorder = isDark ? '#444444' : '#ddd';
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="background: ${bgColor}; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%; border: 2px solid #e50914; color: ${textColor};">
+            <span class="close" onclick="closeCreateListModalFromDetalhes()" style="color: #e50914;">&times;</span>
+            <h2 style="margin: 0 0 20px 0; color: #e50914;">Nova Lista</h2>
+            <form id="create-list-form-detalhes">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: ${isDark ? '#b3b3b3' : '#757575'};">Título da Lista:</label>
+                    <input type="text" id="lista-nome-detalhes" required placeholder="Ex: Clássicos de Terror" style="width: 100%; padding: 10px; border: 1px solid ${inputBorder}; border-radius: 5px; font-size: 16px; background: ${inputBg}; color: ${textColor};">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: ${isDark ? '#b3b3b3' : '#757575'};">Descrição (opcional):</label>
+                    <textarea id="lista-descricao-detalhes" rows="3" placeholder="Descrição da lista..." style="width: 100%; padding: 10px; border: 1px solid ${inputBorder}; border-radius: 5px; font-size: 16px; resize: vertical; background: ${inputBg}; color: ${textColor}; font-family: inherit;"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" style="flex: 1; padding: 12px; background: #e50914; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 600; transition: background 0.3s;">
+                        Criar Lista
+                    </button>
+                    <button type="button" onclick="closeCreateListModalFromDetalhes()" style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 600; transition: background 0.3s;">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('create-list-form-detalhes').addEventListener('submit', createListaFromDetalhes);
+}
+
+function closeCreateListModalFromDetalhes() {
+    const modal = document.getElementById('create-list-modal-detalhes');
+    if (modal) modal.remove();
+}
+
+async function createListaFromDetalhes(e) {
+    e.preventDefault();
+    
+    const nome = document.getElementById('lista-nome-detalhes').value;
+    const descricao = document.getElementById('lista-descricao-detalhes').value;
+    
+    try {
+        const response = await fetch(`${API_BASE}/listas`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ nome, descricao })
+        });
+        
+        if (response.ok) {
+            closeCreateListModalFromDetalhes();
+            showSuccessMessage('Lista criada com sucesso!');
+        } else {
+            const data = await response.json();
+            alert(data.message || 'Erro ao criar lista');
+        }
+    } catch (error) {
+        console.error('Erro ao criar lista:', error);
+        alert('Erro ao criar lista');
+    }
+}
+
+async function toggleConteudoInLista(listaId, conteudoId, isAdded) {
     try {
         if (isAdded) {
-            // Remover da lista
-            const response = await fetch(`${API_BASE}/listas/minha-lista/${conteudoId}`, {
+            const response = await fetch(`${API_BASE}/listas/${listaId}/conteudos/${conteudoId}`, {
                 method: 'DELETE',
                 headers: getAuthHeaders()
             });
-
-            const data = await response.json();
-
+            
             if (response.ok) {
-                updateListaButton(btn, false);
-                showSuccessMessage('Removido da sua lista!');
+                showSuccessMessage('Removido da lista!');
+                closeListaSelectionModal();
+                if (conteudoId) {
+                    await syncListaStatus(conteudoId);
+                }
             } else {
+                const data = await response.json();
                 alert(data.message || 'Erro ao remover da lista');
             }
         } else {
-            // Adicionar à lista
-            const response = await fetch(`${API_BASE}/listas/minha-lista`, {
+            const response = await fetch(`${API_BASE}/listas/${listaId}/conteudos`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ conteudo_id: conteudoId })
             });
-
-            const data = await response.json();
-
+            
             if (response.ok) {
-                updateListaButton(btn, true);
-                showSuccessMessage('Adicionado à sua lista!');
+                showSuccessMessage('Adicionado à lista!');
+                closeListaSelectionModal();
+                if (conteudoId) {
+                    await syncListaStatus(conteudoId);
+                }
             } else {
+                const data = await response.json();
                 alert(data.message || 'Erro ao adicionar à lista');
             }
         }
@@ -1152,43 +1395,80 @@ async function adicionarAMinhaLista(conteudoId) {
     }
 }
 
-// Atualizar botão da lista
-function updateListaButton(buttonEl, isAdded) {
-    if (!buttonEl) return;
-    buttonEl.dataset.added = isAdded ? 'true' : 'false';
-    buttonEl.classList.toggle('added', isAdded);
+async function syncListaStatus(conteudoId) {
+    if (!currentUser || !authToken) return;
     
-    const tooltip = isAdded ? 'Remover da Minha Lista' : 'Adicionar à Minha Lista';
-    buttonEl.setAttribute('aria-label', tooltip);
-    buttonEl.setAttribute('title', tooltip);
-    
-    const svg = buttonEl.querySelector('.list-icon');
-    if (svg) {
-        if (isAdded) {
-            svg.setAttribute('fill', 'currentColor');
-        } else {
-            svg.setAttribute('fill', 'none');
+    try {
+        const response = await fetch(`${API_BASE}/listas`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) return;
+        
+        const listas = await response.json();
+        
+        const listChecks = await Promise.all(
+            listas.map(async (lista) => {
+                try {
+                    const detailsResponse = await fetch(`${API_BASE}/listas/${lista.id}`, {
+                        headers: getAuthHeaders()
+                    });
+                    const details = await detailsResponse.json();
+                    const conteudoIds = details.conteudos?.map(c => c.id) || [];
+                    return conteudoIds.includes(parseInt(conteudoId));
+                } catch {
+                    return false;
+                }
+            })
+        );
+        
+        const totalInLists = listChecks.filter(inList => inList).length;
+        
+        const btn = document.getElementById('add-to-list-btn');
+        if (btn) {
+            const countSpan = btn.querySelector('.list-count');
+            const svg = btn.querySelector('.list-icon');
+            
+            if (totalInLists > 0) {
+                btn.classList.add('in-lists');
+                btn.setAttribute('title', `Em ${totalInLists} lista${totalInLists > 1 ? 's' : ''}`);
+                if (svg) {
+                    svg.setAttribute('fill', '#28a745');
+                    svg.setAttribute('stroke', '#28a745');
+                }
+                if (countSpan) {
+                    countSpan.textContent = totalInLists;
+                    countSpan.style.display = 'flex';
+                }
+            } else {
+                btn.classList.remove('in-lists');
+                btn.setAttribute('title', 'Adicionar a uma Lista');
+                if (svg) {
+                    svg.setAttribute('fill', 'none');
+                    svg.setAttribute('stroke', 'currentColor');
+                }
+                if (countSpan) {
+                    countSpan.style.display = 'none';
+                }
+            }
         }
+    } catch (error) {
+        console.error('Erro ao sincronizar status das listas:', error);
     }
 }
 
-// Sincronizar estado da lista
-async function syncLista(conteudoId) {
-    if (!currentUser || !authToken) return;
-    const btn = document.getElementById('add-to-list-btn');
-    if (!btn) return;
-
-    try {
-        const response = await fetch(`${API_BASE}/listas/minha-lista`, {
-            headers: getAuthHeaders()
-        });
-        if (!response.ok) return;
-        const conteudos = await response.json();
-        const isAdded = conteudos.some(c => c.id === parseInt(conteudoId));
-        updateListaButton(btn, isAdded);
-    } catch (error) {
-        console.error('Erro ao sincronizar lista:', error);
-    }
+function scrollCastCarousel(direction) {
+    const carousel = document.querySelector('.cast-carousel');
+    if (!carousel) return;
+    
+    const scrollAmount = 300; // pixels para scroll
+    const currentScroll = carousel.scrollLeft;
+    const targetScroll = currentScroll + (direction * scrollAmount);
+    
+    carousel.scrollTo({
+        left: targetScroll,
+        behavior: 'smooth'
+    });
 }
 
 // Funções para modal do trailer
@@ -1196,7 +1476,6 @@ function openTrailerModal(trailerUrl) {
     const modal = document.getElementById('trailer-modal');
     const container = document.getElementById('trailer-container');
     
-    // Extrair ID do vídeo do YouTube
     let videoId = '';
     if (trailerUrl.includes('youtube.com/watch?v=')) {
         videoId = trailerUrl.split('v=')[1].split('&')[0];
@@ -1228,7 +1507,6 @@ function closeTrailerModal() {
     document.body.style.overflow = 'auto';
 }
 
-// Fechar modal ao clicar fora
 window.addEventListener('click', function(event) {
     const trailerModal = document.getElementById('trailer-modal');
     if (event.target === trailerModal) {
@@ -1236,7 +1514,6 @@ window.addEventListener('click', function(event) {
     }
 });
 
-// Fechar modal com tecla ESC
 window.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
         closeTrailerModal();

@@ -1,9 +1,30 @@
+/*
+ * Rotas de Reviews (Avaliações)
+ * 
+ * Sistema completo de reviews para conteúdos:
+ * - Utilizadores podem criar/atualizar reviews com avaliação (1-10) e comentário
+ * - Sistema de votos de utilidade
+ * - Cálculo automático do rating médio do conteúdo
+ * 
+ * Rotas:
+ * - POST /api/reviews - Criar/atualizar review
+ * - GET /api/reviews/conteudo/:id - Listar reviews de conteúdo
+ * - GET /api/reviews/user/:id - Listar reviews de utilizador
+ * - POST /api/reviews/:id/voto - Votar em review (utilidade)
+ * - DELETE /api/reviews/:id - Eliminar review
+ */
+
 const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { verifyJWT } = require('../middleware/auth');
 
-// Criar review
+/**
+ * POST /api/reviews
+ * Cria nova review ou atualiza existente (1 review por utilizador por conteúdo)
+ * Valida avaliação entre 1-10 e recalcula rating do conteúdo
+ * Requer: Autenticação
+ */
 router.post('/', verifyJWT, async (req, res) => {
     try {
         const { conteudo_id, avaliacao, comentario } = req.body;
@@ -17,32 +38,27 @@ router.post('/', verifyJWT, async (req, res) => {
             return res.status(400).json({ message: 'Avaliação deve estar entre 1 e 10.' });
         }
         
-        // Verificar se já existe review
         const [existing] = await db.execute(
             'SELECT id FROM reviews WHERE utilizador_id = ? AND conteudo_id = ?',
             [utilizador_id, conteudo_id]
         );
         
         if (existing.length > 0) {
-            // Atualizar review existente
             await db.execute(
                 'UPDATE reviews SET avaliacao = ?, comentario = ? WHERE id = ?',
                 [avaliacao, comentario || null, existing[0].id]
             );
             
-            // Atualizar rating médio do conteúdo
             await updateConteudoRating(conteudo_id);
             
             return res.json({ message: 'Review atualizada com sucesso.', id: existing[0].id });
         }
         
-        // Criar nova review
         const [result] = await db.execute(
             'INSERT INTO reviews (utilizador_id, conteudo_id, avaliacao, comentario) VALUES (?, ?, ?, ?)',
             [utilizador_id, conteudo_id, avaliacao, comentario || null]
         );
         
-        // Atualizar rating médio do conteúdo
         await updateConteudoRating(conteudo_id);
         
         res.status(201).json({ message: 'Review criada com sucesso.', id: result.insertId });
@@ -52,7 +68,12 @@ router.post('/', verifyJWT, async (req, res) => {
     }
 });
 
-// Listar reviews de um conteúdo
+/**
+ * GET /api/reviews/conteudo/:conteudo_id
+ * Lista todas as reviews de um conteúdo com dados dos utilizadores
+ * Ordenado por data (mais recentes primeiro)
+ * Público
+ */
 router.get('/conteudo/:conteudo_id', async (req, res) => {
     try {
         const { conteudo_id } = req.params;
@@ -73,12 +94,15 @@ router.get('/conteudo/:conteudo_id', async (req, res) => {
     }
 });
 
-// Listar reviews de um utilizador
+/**
+ * GET /api/reviews/user/:utilizador_id
+ * Lista reviews de um utilizador com dados dos conteúdos
+ * Verifica permissões (próprio utilizador ou admin)
+ * Requer: Autenticação
+ */
 router.get('/user/:utilizador_id', verifyJWT, async (req, res) => {
     try {
         const { utilizador_id } = req.params;
-        
-        // Verificar se é o próprio utilizador ou admin
         if (parseInt(utilizador_id) !== req.userId) {
             const [user] = await db.execute(
                 'SELECT is_admin FROM utilizadores WHERE id = ?',
@@ -106,13 +130,18 @@ router.get('/user/:utilizador_id', verifyJWT, async (req, res) => {
     }
 });
 
-// Votar na utilidade de uma review (toggle)
+/**
+ * POST /api/reviews/:review_id/voto
+ * Regista ou remove voto de utilidade numa review
+ * Utilizador não pode votar na própria review
+ * Toggle: se já votou, remove voto; senão adiciona
+ * Requer: Autenticação
+ */
 router.post('/:review_id/voto', verifyJWT, async (req, res) => {
     try {
         const { review_id } = req.params;
         const utilizador_id = req.userId;
         
-        // Verificar se não é a própria review
         const [review] = await db.execute(
             'SELECT utilizador_id FROM reviews WHERE id = ?',
             [review_id]
@@ -126,20 +155,17 @@ router.post('/:review_id/voto', verifyJWT, async (req, res) => {
             return res.status(400).json({ message: 'Não pode votar na sua própria review.' });
         }
         
-        // Verificar se já votou
         const [existing] = await db.execute(
             'SELECT id FROM votos_reviews WHERE review_id = ? AND utilizador_id = ?',
             [review_id, utilizador_id]
         );
         
         if (existing.length > 0) {
-            // Remover voto
             await db.execute(
                 'DELETE FROM votos_reviews WHERE review_id = ? AND utilizador_id = ?',
                 [review_id, utilizador_id]
             );
             
-            // Atualizar contador
             await db.execute(
                 'UPDATE reviews SET votos_utilidade = votos_utilidade - 1 WHERE id = ?',
                 [review_id]
@@ -148,13 +174,11 @@ router.post('/:review_id/voto', verifyJWT, async (req, res) => {
             return res.json({ message: 'Voto removido com sucesso.', voted: false });
         }
         
-        // Adicionar voto
         await db.execute(
             'INSERT INTO votos_reviews (review_id, utilizador_id) VALUES (?, ?)',
             [review_id, utilizador_id]
         );
         
-        // Atualizar contador
         await db.execute(
             'UPDATE reviews SET votos_utilidade = votos_utilidade + 1 WHERE id = ?',
             [review_id]
@@ -167,7 +191,12 @@ router.post('/:review_id/voto', verifyJWT, async (req, res) => {
     }
 });
 
-// Verificar se utilizador votou numa review
+
+/**
+ * GET /api/reviews/:review_id/voto
+ * Verifica se utilizador já votou numa review
+ * Requer: Autenticação
+ */
 router.get('/:review_id/voto', verifyJWT, async (req, res) => {
     try {
         const { review_id } = req.params;
@@ -185,7 +214,13 @@ router.get('/:review_id/voto', verifyJWT, async (req, res) => {
     }
 });
 
-// Eliminar review
+/**
+ * DELETE /api/reviews/:id
+ * Elimina uma review
+ * Só o autor ou admin pode eliminar
+ * Recalcula rating do conteúdo após eliminação
+ * Requer: Autenticação
+ */
 router.delete('/:id', verifyJWT, async (req, res) => {
     try {
         const { id } = req.params;
@@ -210,7 +245,6 @@ router.delete('/:id', verifyJWT, async (req, res) => {
         
         await db.execute('DELETE FROM reviews WHERE id = ?', [id]);
         
-        // Atualizar rating médio do conteúdo
         await updateConteudoRating(conteudo_id);
         
         res.json({ message: 'Review eliminada com sucesso.' });
@@ -220,7 +254,12 @@ router.delete('/:id', verifyJWT, async (req, res) => {
     }
 });
 
-// Função auxiliar para atualizar rating médio do conteúdo
+/**
+ * Função auxiliar para atualizar rating médio de um conteúdo
+ * Calcula média de todas as avaliações e atualiza tabela conteudos
+ * 
+ * @param {number} conteudo_id - ID do conteúdo a atualizar
+ */
 async function updateConteudoRating(conteudo_id) {
     try {
         const [result] = await db.execute(

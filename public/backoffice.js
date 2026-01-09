@@ -1,7 +1,22 @@
-const API_BASE = '/api';
-let authToken = null;
-let currentUser = null;
+/*
+ * Aplicação de Backoffice (Administração)
+ * 
+ * Painel administrativo para gestão da plataforma
+ * Funcionalidades:
+ * - Gestão de utilizadores (criar, editar, eliminar)
+ * - Importação de conteúdos do TMDB
+ * - Gestão de reviews
+ * - Apenas acessível a administradores
+ */
 
+// Constantes e variáveis globais
+const API_BASE = '/api';
+let authToken = null; // Token JWT para autenticação
+let currentUser = null; // Dados do utilizador admin
+
+/**
+ * Associa eventos aos botões de autenticação do backoffice
+ */
 function bindAuthButtons() {
     const loginBtn = document.getElementById('login-btn-back');
     const registerBtn = document.getElementById('register-btn-back');
@@ -29,13 +44,18 @@ function bindAuthButtons() {
     }
 }
 
-// Dark Mode
+/**
+ * Alterna entre modo escuro e claro
+ */
 function toggleDarkMode() {
     document.body.classList.toggle('dark-mode');
     const isDarkMode = document.body.classList.contains('dark-mode');
     localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
 }
 
+/**
+ * Carrega preferência de modo escuro
+ */
 function loadDarkModePreference() {
     const darkMode = localStorage.getItem('darkMode');
     if (darkMode === 'enabled') {
@@ -45,7 +65,11 @@ function loadDarkModePreference() {
     }
 }
 
-// Success Message Pop-up
+/**
+ * Exibe mensagem de sucesso temporária
+ * 
+ * @param {string} message - Mensagem a exibir
+ */
 function showSuccessMessage(message) {
     const popup = document.createElement('div');
     popup.className = 'success-popup';
@@ -67,13 +91,16 @@ function showSuccessMessage(message) {
     }, 3000);
 }
 
-// Garantir que o dark mode é aplicado quando a página é restaurada do cache
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
         loadDarkModePreference();
     }
 });
 
+/**
+ * Inicialização do backoffice
+ * Verifica se utilizador é admin antes de permitir acesso
+ */
 window.addEventListener('DOMContentLoaded', () => {
     loadDarkModePreference();
     bindAuthButtons();
@@ -87,11 +114,21 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+/**
+ * Controla visibilidade do link de backoffice
+ * 
+ * @param {boolean} isAdmin - Se utilizador é admin
+ */
 function setBackofficeVisibility(isAdmin) {
     const backLink = document.getElementById('backoffice-link');
     if (backLink) backLink.style.display = isAdmin ? 'inline-block' : 'none';
 }
 
+/**
+ * Atualiza UI de autenticação do backoffice
+ * 
+ * @param {Object} params - Parâmetros com logged e username
+ */
 function updateAuthUI({ logged, username }) {
     const loginBtn = document.getElementById('login-btn-back');
     const registerBtn = document.getElementById('register-btn-back');
@@ -100,7 +137,6 @@ function updateAuthUI({ logged, username }) {
     const perfilLink = document.getElementById('perfil-link');
     const frontLink = document.getElementById('frontoffice-link');
 
-    // No Backoffice, o link "Início" deve estar sempre visível.
     if (frontLink) frontLink.style.display = 'inline-block';
 
     if (logged) {
@@ -123,6 +159,11 @@ function updateAuthUI({ logged, username }) {
     }
 }
 
+/**
+ * Cria headers de autenticação com token JWT
+ * 
+ * @returns {Object} Headers com token
+ */
 function getAuthHeaders() {
     return {
         'Content-Type': 'application/json',
@@ -130,6 +171,10 @@ function getAuthHeaders() {
     };
 }
 
+/**
+ * Verifica se utilizador é administrador
+ * Bloqueia acesso ao backoffice se não for admin
+ */
 async function verifyAuth() {
     try {
         const response = await fetch(`${API_BASE}/auth/verify`, {
@@ -165,16 +210,25 @@ async function verifyAuth() {
     }
 }
 
+/**
+ * Exibe mensagem de login necessário
+ */
 function showLoginRequired() {
     document.getElementById('login-required').style.display = 'block';
     document.getElementById('admin-content').style.display = 'none';
 }
 
+/**
+ * Exibe conteúdo administrativo
+ */
 function showAdminContent() {
     document.getElementById('login-required').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
 }
 
+/**
+ * Faz logout e redireciona para página inicial
+ */
 function logout() {
     authToken = null;
     currentUser = null;
@@ -219,8 +273,13 @@ function closePerfilModal() {
     document.getElementById('perfil-modal').style.display = 'none';
 }
 
+/**
+ * Alterna entre diferentes tabs do backoffice
+ * (Gestão, Utilizadores, Reviews)
+ * 
+ * @param {string} tabName - Nome do tab a exibir
+ */
 function showTab(tabName) {
-    // Esconder todos os tabs
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
@@ -228,11 +287,9 @@ function showTab(tabName) {
         btn.classList.remove('active');
     });
     
-    // Mostrar tab selecionado
     document.getElementById(`${tabName}-tab`).classList.add('active');
     event.target.classList.add('active');
 
-    // Carregar dados do tab
     if (tabName === 'manage') {
         loadManageContent();
     } else if (tabName === 'users') {
@@ -242,6 +299,9 @@ function showTab(tabName) {
     }
 }
 
+/**
+ * Carrega lista de utilizadores do sistema
+ */
 async function loadUsers() {
     try {
         const response = await fetch(`${API_BASE}/admin/users`, {
@@ -259,6 +319,12 @@ async function loadUsers() {
     }
 }
 
+/**
+ * Renderiza lista de utilizadores na interface
+ * Cria cards editáveis para cada utilizador
+ * 
+ * @param {Array} users - Array de utilizadores
+ */
 function displayUsers(users) {
     const grid = document.getElementById('users-list');
     if (!grid) return;
@@ -550,11 +616,14 @@ async function importFromTMDB(tmdbId, tipo) {
 async function createContent(event) {
     event.preventDefault();
     
+    const anoInput = document.getElementById('create-ano').value;
+    const anoLancamento = anoInput ? new Date(anoInput).getFullYear() : null;
+    
     const formData = {
         titulo: document.getElementById('create-titulo').value,
         sinopse: document.getElementById('create-sinopse').value,
         duracao: document.getElementById('create-duracao').value || null,
-        ano_lancamento: document.getElementById('create-ano').value || null,
+        ano_lancamento: anoLancamento,
         tipo: document.getElementById('create-tipo').value,
         poster_url: document.getElementById('create-poster').value || null,
         trailer_url: document.getElementById('create-trailer').value || null
@@ -721,7 +790,6 @@ async function deleteContent(id) {
     }
 }
 
-// Fechar modal ao clicar fora
 window.onclick = function(event) {
     const perfilModal = document.getElementById('perfil-modal');
     if (event.target === perfilModal) {

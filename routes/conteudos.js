@@ -1,3 +1,19 @@
+/*
+ * Rotas de Conteúdos (Filmes e Séries)
+ * 
+ * Gestão completa de conteúdos multimédia:
+ * - Listagem com filtros (tipo, género, pesquisa)
+ * - Detalhes de conteúdos individuais
+ * - Importação de dados do TMDB
+ * - CRUD de conteúdos (admin)
+ * 
+ * Rotas principais:
+ * - GET /api/conteudos - Listar conteúdos
+ * - GET /api/conteudos/:id - Detalhes de conteúdo
+ * - POST /api/conteudos/tmdb/import - Importar do TMDB
+ * - POST /api/conteudos - Criar conteúdo manual
+ */
+
 const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
@@ -6,7 +22,11 @@ const tmdbClient = require('../config/tmdb');
 
 console.log('Conteudos router loaded');
 
-// Listar todos os conteúdos (filmes/séries)
+/**
+ * GET /api/conteudos
+ * Lista conteúdos com filtros opcionais (tipo, género, pesquisa)
+ * Público
+ */
 router.get('/', async (req, res) => {
     try {
         const { tipo, genero, search } = req.query;
@@ -38,7 +58,11 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Obter conteúdo por ID
+/**
+ * GET /api/conteudos/:id
+ * Obtém detalhes completos de um conteúdo incluindo géneros e reviews
+ * Público
+ */
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -54,7 +78,6 @@ router.get('/:id', async (req, res) => {
         
         const conteudo = conteudos[0];
         
-        // Buscar géneros
         const [generos] = await db.execute(
             `SELECT g.nome
              FROM conteudo_generos cg
@@ -65,7 +88,6 @@ router.get('/:id', async (req, res) => {
         
         conteudo.generos = generos.map(g => g.nome).join(', ');
         
-        // Buscar reviews
         const [reviews] = await db.execute(
             `SELECT r.*, u.username, u.nome as nome_utilizador
              FROM reviews r
@@ -84,6 +106,33 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/conteudos/:id/elenco
+ * Obtém lista de elenco de um conteúdo ordenado por importância
+ * Público
+ */
+router.get('/:id/elenco', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const [elenco] = await db.execute(
+            'SELECT * FROM elenco WHERE conteudo_id = ? ORDER BY ordem ASC',
+            [id]
+        );
+        
+        res.json(elenco);
+    } catch (error) {
+        console.error('Erro ao obter elenco:', error);
+        res.status(500).json({ message: 'Erro ao obter elenco.' });
+    }
+});
+
+/**
+ * GET /api/conteudos/tmdb/search
+ * Pesquisa filmes/séries na API do TMDB
+ * Parâmetros: query (obrigatório), tipo (movie/tv), page
+ * Público
+ */
 router.get('/tmdb/search', async (req, res) => {
     console.log('Rota /tmdb/search chamada');
     try {
@@ -115,6 +164,13 @@ router.get('/tmdb/search', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/conteudos/tmdb/popular
+ * Obtém conteúdos populares do TMDB
+ * Suporta filtro por género e paginação
+ * Retorna dados mock em caso de erro (fallback)
+ * Público
+ */
 router.get('/tmdb/popular', async (req, res) => {
     console.log('Rota /tmdb/popular chamada');
     try {
@@ -124,7 +180,6 @@ router.get('/tmdb/popular', async (req, res) => {
 
         const axios = require('axios');
         
-        // Se tem género, usar endpoint discover em vez de popular
         const endpoint = genero ? `https://api.themoviedb.org/3/discover/${tipo}` : `https://api.themoviedb.org/3/${tipo}/popular`;
         
         const params = {
@@ -133,17 +188,16 @@ router.get('/tmdb/popular', async (req, res) => {
             page
         };
         
-        // Adicionar filtro de género se especificado
         if (genero) {
             params.with_genres = genero;
-            params.sort_by = 'popularity.desc'; // Ordenar por popularidade no discover
+            params.sort_by = 'popularity.desc';
         }
         
         const response = await axios.get(endpoint, {
             params,
-            timeout: 10000 // 10 segundos timeout
+            timeout: 10000
         });
-
+        
         console.log('Resposta da TMDB:', response.status);
 
         res.json(response.data);
@@ -154,7 +208,6 @@ router.get('/tmdb/popular', async (req, res) => {
             console.error('Dados do erro:', error.response.data);
         }
 
-        // Retornar dados mock em caso de erro
         console.log('Retornando dados mock devido a erro na TMDB');
         const mockData = {
             page: parseInt(page),
@@ -178,13 +231,17 @@ router.get('/tmdb/popular', async (req, res) => {
     }
 });
 
-// Rota de teste
 router.get('/test', (req, res) => {
     console.log('Rota /test chamada');
     res.json({ message: 'Teste funcionando' });
 });
 
-// Importar conteúdo da TMDB
+/**
+ * POST /api/conteudos/tmdb/import
+ * Importa conteúdo do TMDB para a base de dados local
+ * Busca dados completos incluindo géneros, trailer, elenco e diretor
+ * Requer: Admin
+ */
 router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const { tmdb_id, tipo = 'movie' } = req.body;
@@ -193,7 +250,7 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(400).json({ message: 'tmdb_id é obrigatório.' });
         }
         
-        // Verificar se já existe
+
         const [existing] = await db.execute(
             'SELECT id FROM conteudos WHERE tmdb_id = ?',
             [tmdb_id]
@@ -203,7 +260,6 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(400).json({ message: 'Conteúdo já importado.' });
         }
         
-        // Buscar dados da TMDB
         const endpoint = tipo === 'movie' ? `/movie/${tmdb_id}` : `/tv/${tmdb_id}`;
         const [details, videos, credits] = await Promise.all([
             tmdbClient.get(endpoint),
@@ -228,7 +284,6 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
         const trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
         const trailerUrl = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
         
-        // Inserir conteúdo
         const [result] = await db.execute(
             `INSERT INTO conteudos (tmdb_id, titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url, tmdb_rating, diretor)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -248,10 +303,8 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
         
         const conteudoId = result.insertId;
         
-        // Inserir géneros
         if (data.genres && data.genres.length > 0) {
             for (const genre of data.genres) {
-                // Verificar se género existe, se não criar
                 let [generos] = await db.execute('SELECT id FROM generos WHERE nome = ?', [genre.name]);
                 let generoId;
                 
@@ -276,7 +329,12 @@ router.post('/tmdb/import', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
-// Criar conteúdo manualmente (backoffice)
+/**
+ * POST /api/conteudos
+ * Cria conteúdo manualmente na base de dados
+ * Para conteúdos não disponíveis no TMDB
+ * Requer: Admin
+ */
 router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const { titulo, sinopse, duracao, ano_lancamento, tipo, poster_url, trailer_url } = req.body;
@@ -298,7 +356,11 @@ router.post('/', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
-// Atualizar conteúdo
+/**
+ * PUT /api/conteudos/:id
+ * Atualiza dados de um conteúdo existente
+ * Requer: Admin
+ */
 router.put('/:id', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const { id } = req.params;
@@ -318,7 +380,11 @@ router.put('/:id', verifyJWT, verifyAdmin, async (req, res) => {
     }
 });
 
-// Eliminar conteúdo
+/**
+ * DELETE /api/conteudos/:id
+ * Elimina conteúdo da base de dados
+ * Requer: Admin
+ */
 router.delete('/:id', verifyJWT, verifyAdmin, async (req, res) => {
     try {
         const { id } = req.params;
@@ -370,7 +436,6 @@ router.post('/update-rating/:id', async (req, res) => {
         
         const conteudo = conteudos[0];
         
-        // Se não tem tmdb_id ou já tem tmdb_rating, não fazer nada
         if (!conteudo.tmdb_id || conteudo.tmdb_rating) {
             return res.json({
                 message: 'TMDB rating já existe ou conteúdo não é do TMDB.',
@@ -378,13 +443,11 @@ router.post('/update-rating/:id', async (req, res) => {
             });
         }
         
-        // Buscar rating do TMDB
         const mediaType = conteudo.tipo === 'filme' ? 'movie' : 'tv';
         const endpoint = `/${mediaType}/${conteudo.tmdb_id}`;
         const response = await tmdbClient.get(endpoint);
         const rating = response.data.vote_average;
         
-        // Atualizar na base de dados
         await db.execute(
             'UPDATE conteudos SET tmdb_rating = ? WHERE id = ?',
             [rating, id]
@@ -406,7 +469,6 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
             return res.status(400).json({ message: 'ID TMDB e tipo são obrigatórios.' });
         }
         
-        // Buscar detalhes do TMDB (incluindo vídeos e créditos)
         const [tmdbResponse, videosResponse, creditsResponse] = await Promise.all([
             tmdbClient.get(`/${media_type}/${tmdb_id}`),
             tmdbClient.get(`/${media_type}/${tmdb_id}/videos`),
@@ -434,14 +496,12 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
             diretor = tmdbData.created_by?.map(c => c.name).join(', ') || null;
         }
         
-        // Encontrar trailer
         const trailer = videos.find(v => 
             v.type === 'Trailer' && v.site === 'YouTube' && (v.iso_639_1 === 'pt' || v.iso_639_1 === 'en')
         ) || videos.find(v => v.type === 'Trailer' && v.site === 'YouTube');
         
         const trailer_url = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
         
-        // Verificar se já existe
         const [existing] = await db.execute(
             'SELECT id FROM conteudos WHERE tmdb_id = ?',
             [tmdb_id]
@@ -482,6 +542,26 @@ router.post('/importar-tmdb', verifyJWT, verifyAdmin, async (req, res) => {
                     'INSERT INTO conteudo_generos (conteudo_id, genero_id) VALUES (?, ?)',
                     [conteudoId, generoId]
                 );
+            }
+        }
+        
+        // Inserir elenco
+        if (creditsData.cast && creditsData.cast.length > 0) {
+            try {
+                const cast = creditsData.cast;
+                for (let i = 0; i < cast.length; i++) {
+                    const actor = cast[i];
+                    const foto_url = actor.profile_path 
+                        ? `https://image.tmdb.org/t/p/w185${actor.profile_path}` 
+                        : null;
+                    
+                    await db.execute(
+                        'INSERT INTO elenco (conteudo_id, tmdb_id, nome, personagem, foto_url, ordem) VALUES (?, ?, ?, ?, ?, ?)',
+                        [conteudoId, actor.id, actor.name, actor.character || null, foto_url, i]
+                    );
+                }
+            } catch (elencoError) {
+                console.warn('Aviso: Não foi possível inserir elenco. Tabela pode não existir:', elencoError.message);
             }
         }
         
